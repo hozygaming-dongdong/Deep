@@ -549,6 +549,24 @@ function totalDepthLayers(target=cfg.depthBands){
   const d=target&&typeof target==='object'?target:DEFAULTS.depthBands;
   return BANDS.reduce((a,b)=>a+Math.max(1,Math.round(+d[b]||DEFAULTS.depthBands[b]||1)),0);
 }
+function chargedDepthSegments(target=cfg.depthBands, from=cfg.anteFrom){
+  const d=target&&typeof target==='object'?target:DEFAULTS.depthBands;
+  const start=BANDS.indexOf(from);
+  if(start<0) return 0;
+  return BANDS.slice(start).reduce((a,b)=>a+Math.max(1,Math.round(+d[b]||DEFAULTS.depthBands[b]||1)),0);
+}
+function fullDiveCostMult(){
+  return 1 + chargedDepthSegments()*Math.max(0,+cfg.anteAmt||0);
+}
+function depthCostSummaryHtml(){
+  const charged=chargedDepthSegments();
+  const ante=Math.max(0,+cfg.anteAmt||0);
+  return `Total ${totalDepthLayers()} segments · full dive cost ${fullDiveCostMult().toFixed(2)}× BET<br>`+
+    `Ante from ${cfg.anteFrom}: ${charged} charged segments × ${ante.toFixed(2)}`;
+}
+function updateDepthCostNotes(){
+  document.querySelectorAll('[data-depth-cost-note]').forEach(note=>{ note.innerHTML=depthCostSummaryHtml(); });
+}
 function bandRangeLabel(band){
   return `${BAND_METER_RANGE[band]} · ${normaliseDepthBands()[band]} segments`;
 }
@@ -761,7 +779,8 @@ function buildDepthBandEditor(host){
   const wrap=document.createElement('div'); wrap.className='depth-band-editor grp';
   const head=document.createElement('div'); head.className='gh'; head.textContent='Depth segments';
   const note=document.createElement('div'); note.className='density-note';
-  const updateNote=()=>{ note.textContent=`Total ${totalDepthLayers()} segments · changes LAYERS, bandOf(), the depth ruler, sim stops, and full-dive shark odds.`; };
+  note.dataset.depthCostNote='1';
+  const updateNote=()=>{ note.innerHTML=depthCostSummaryHtml(); };
   wrap.append(head,note);
   BANDS.forEach(band=>{
     const input=document.createElement('input');
@@ -770,7 +789,7 @@ function buildDepthBandEditor(host){
     input.addEventListener('input',()=>{
       cfg.depthBands[band]=Math.max(1,Math.min(60,Math.round(+input.value||1)));
       input.value=cfg.depthBands[band];
-      updateNote();
+      updateDepthCostNotes();
       markDirty();
     });
     ctrlRow(wrap,band,`${BAND_METER_RANGE[band]} · segments in this band`,input);
@@ -1089,10 +1108,10 @@ function buildParams(){
   ctrlRow(gs,'獎品倍率 最小 ×','鯊魚沒咬斷時，轉成獎品魚的倍率下限（預設 ×3）',prizeMin);
   ctrlRow(gs,'獎品倍率 最大 ×','同一支 value roll 在最小～最大間抽樣（預設 ×10）',prizeMax);
   const ga=$('#grpAnte'); ga.querySelectorAll('.row').forEach(e=>e.remove());
-  ctrlRow(ga,'加注額','×原注／段 (預設 0.25)', numInput(cfg.anteAmt,0.05,v=>cfg.anteAmt=v));
+  ctrlRow(ga,'加注額','×原注／段 (預設 0.25)', numInput(cfg.anteAmt,0.05,v=>{ cfg.anteAmt=v; updateDepthCostNotes(); }));
   const fromSel=document.createElement('select'); fromSel.className='mini';
   BANDS.forEach(b=>{ const o=document.createElement('option'); o.value=b; o.textContent=b; if(b===cfg.anteFrom)o.selected=true; fromSel.appendChild(o); });
-  fromSel.addEventListener('change',()=>{ cfg.anteFrom=fromSel.value; markDirty(); });
+  fromSel.addEventListener('change',()=>{ cfg.anteFrom=fromSel.value; updateDepthCostNotes(); markDirty(); });
   ctrlRow(ga,'起始帶','哪一帶開始加注 (預設 REEF)', fromSel);
   const gp=$('#grpSpawn'); gp.querySelectorAll('.row,.density-editor,.depth-band-editor').forEach(e=>e.remove());
   buildDepthBandEditor(gp);
