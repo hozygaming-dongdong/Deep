@@ -347,38 +347,38 @@ export const CFG = {
         {mult:1.5,weight:0}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
       ],
       bubble: [
-        {min:2,max:4,weight:85}, {min:4,max:8,weight:14}, {min:8,max:20,weight:1},
+        {min:2,max:4,weight:75}, {min:4,max:8,weight:22}, {min:8,max:20,weight:3},
         {min:20,max:50,weight:0}, {min:50,max:100,weight:0},
       ],
     },
     REEF: {
       fish: [
-        {mult:0.2,weight:30}, {mult:0.5,weight:64}, {mult:1,weight:6},
+        {mult:0.2,weight:42}, {mult:0.5,weight:55}, {mult:1,weight:3},
         {mult:1.5,weight:0}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
       ],
       bubble: [
-        {min:2,max:4,weight:68}, {min:4,max:8,weight:25}, {min:8,max:20,weight:6},
+        {min:2,max:4,weight:50}, {min:4,max:8,weight:36}, {min:8,max:20,weight:13},
         {min:20,max:50,weight:1}, {min:50,max:100,weight:0},
       ],
     },
     DEEPER: {
       fish: [
-        {mult:0.2,weight:8}, {mult:0.5,weight:62}, {mult:1,weight:26},
-        {mult:1.5,weight:4}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
+        {mult:0.2,weight:15}, {mult:0.5,weight:62}, {mult:1,weight:20},
+        {mult:1.5,weight:3}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
       ],
       bubble: [
-        {min:2,max:4,weight:48}, {min:4,max:8,weight:33}, {min:8,max:20,weight:15},
-        {min:20,max:50,weight:3.5}, {min:50,max:100,weight:0.5},
+        {min:2,max:4,weight:32}, {min:4,max:8,weight:38}, {min:8,max:20,weight:24},
+        {min:20,max:50,weight:5}, {min:50,max:100,weight:1},
       ],
     },
     ABYSS: {
       fish: [
-        {mult:0.2,weight:0}, {mult:0.5,weight:45}, {mult:1,weight:45},
-        {mult:1.5,weight:7}, {mult:2,weight:2}, {mult:3,weight:1}, {mult:5,weight:0},
+        {mult:0.2,weight:3}, {mult:0.5,weight:54}, {mult:1,weight:35},
+        {mult:1.5,weight:6}, {mult:2,weight:2}, {mult:3,weight:0}, {mult:5,weight:0},
       ],
       bubble: [
-        {min:2,max:4,weight:35}, {min:4,max:8,weight:35}, {min:8,max:20,weight:22},
-        {min:20,max:50,weight:7}, {min:50,max:100,weight:1},
+        {min:2,max:4,weight:24}, {min:4,max:8,weight:34}, {min:8,max:20,weight:30},
+        {min:20,max:50,weight:10}, {min:50,max:100,weight:2},
       ],
     },
   },
@@ -387,23 +387,23 @@ export const CFG = {
      single count/presence roll; defaults preserve the prior seeded mapping. */
   spawnDensity: {
     SHALLOWS: {
-      fish:    [{count:0,weight:0},     {count:1,weight:50},   {count:2,weight:50},   {count:3,weight:0}],
-      bubble:  [{count:0,weight:75},    {count:1,weight:23},   {count:2,weight:2},    {count:3,weight:0}],
+      fish:    [{count:0,weight:0},     {count:1,weight:65},   {count:2,weight:35},   {count:3,weight:0}],
+      bubble:  [{count:0,weight:60},    {count:1,weight:34},   {count:2,weight:6},    {count:3,weight:0}],
       scatter: [{count:0,weight:99.43}, {count:1,weight:0.57}, {count:2,weight:0},    {count:3,weight:0}],
     },
     REEF: {
-      fish:    [{count:0,weight:0},    {count:1,weight:50},  {count:2,weight:50},  {count:3,weight:0}],
-      bubble:  [{count:0,weight:72},   {count:1,weight:26},  {count:2,weight:2},   {count:3,weight:0}],
+      fish:    [{count:0,weight:0},    {count:1,weight:60},  {count:2,weight:40},  {count:3,weight:0}],
+      bubble:  [{count:0,weight:45},   {count:1,weight:42},  {count:2,weight:13},  {count:3,weight:0}],
       scatter: [{count:0,weight:98.6}, {count:1,weight:1.4}, {count:2,weight:0},   {count:3,weight:0}],
     },
     DEEPER: {
-      fish:    [{count:0,weight:0},     {count:1,weight:50},   {count:2,weight:50},   {count:3,weight:0}],
-      bubble:  [{count:0,weight:70},    {count:1,weight:27},   {count:2,weight:3},    {count:3,weight:0}],
+      fish:    [{count:0,weight:0},     {count:1,weight:55},   {count:2,weight:45},   {count:3,weight:0}],
+      bubble:  [{count:0,weight:32},    {count:1,weight:48},   {count:2,weight:18},   {count:3,weight:2}],
       scatter: [{count:0,weight:97.45}, {count:1,weight:2.55}, {count:2,weight:0},    {count:3,weight:0}],
     },
     ABYSS: {
       fish:    [{count:0,weight:0},    {count:1,weight:50},  {count:2,weight:50},  {count:3,weight:0}],
-      bubble:  [{count:0,weight:67},   {count:1,weight:30},  {count:2,weight:3},   {count:3,weight:0}],
+      bubble:  [{count:0,weight:25},   {count:1,weight:48},  {count:2,weight:23},  {count:3,weight:4}],
       scatter: [{count:0,weight:96.4}, {count:1,weight:3.6}, {count:2,weight:0},   {count:3,weight:0}],
     },
   },
