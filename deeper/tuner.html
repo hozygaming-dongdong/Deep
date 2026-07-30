@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEEPER — 經濟參數調控台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* v2.4c — bright dev-tool theme (hao): warm-white surfaces, ink text, gold accents kept */
+    --bg:#eaedf1; --panel:#ffffff; --panel2:#f3f6f9; --edge:#dbe1e8;
+    --ink:#1b2733; --ash:#5c6b78; --dim:#95a2ad;
+    --gold-hi:#a9750f; --gold:#c0871a; --gold-deep:#7a5210;
+    --cyan:#0d7d8c; --cool:#3a8fb0; --violet:#7a4fb0;
+    --good:#1f9d5c; --bad:#d13b3b; --warn:#bd8500;
+    --mono:'Hanken Grotesk',system-ui,sans-serif; --disp:'Big Shoulders Display',sans-serif;
+  }
+  html{scroll-behavior:smooth; scroll-padding-top:92px; touch-action:manipulation}
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:
+      radial-gradient(120% 80% at 50% -8%, #ffffff 0%, var(--bg) 62%),
+      var(--bg); color:var(--ink); font-family:var(--mono); font-size:13px; line-height:1.5;
+    padding:0 0 80px; -webkit-font-smoothing:antialiased}
+  a{color:var(--cyan)}
+  a,button,input,select{touch-action:manipulation}
+  .wrap{max-width:1760px; margin:0 auto; padding:0 20px}
+
+  /* ── header ── */
+  header{position:sticky; top:0; z-index:30; backdrop-filter:blur(12px);
+    background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,255,255,.80)); border-bottom:1px solid var(--edge)}
+  .hd{display:flex; align-items:center; gap:18px; padding:14px 20px; max-width:1760px; margin:0 auto; flex-wrap:wrap}
+  .logo{font-family:var(--disp); font-weight:900; font-size:22px; letter-spacing:.06em;
+    background:linear-gradient(180deg,#d69a2e,var(--gold) 55%,var(--gold-deep));
+    -webkit-background-clip:text; background-clip:text; color:transparent}
+  .logo small{display:block; font-family:var(--mono); font-weight:600; font-size:9px; letter-spacing:.34em;
+    color:var(--ash); -webkit-text-fill-color:var(--ash); margin-top:1px}
+  .hd .spacer{flex:1}
+  .run{font-family:var(--disp); font-weight:800; font-size:15px; letter-spacing:.08em;
+    color:#3a2606; background:linear-gradient(180deg,#f6d68a,#d69a2e 48%,#b3801a);
+    min-width:122px; border:0; border-radius:8px; padding:11px 20px; cursor:pointer; box-shadow:0 2px 0 #9a6b12, 0 6px 16px rgba(180,120,20,.30);
+    transition:transform .08s}
+  .run:active{transform:translateY(2px); box-shadow:0 0 0 #9a6b12}
+  .run[disabled]{opacity:.6; cursor:wait}
+  .run-stack{display:flex; flex-direction:column; align-items:stretch; gap:6px; min-width:122px}
+  .run-stack .run{width:100%}
+  .roundsel{display:flex; align-items:center; gap:7px; font-size:11px; color:var(--ash)}
+  .roundsel select{font-family:var(--mono); background:var(--panel2); color:var(--ink); border:1px solid var(--edge);
+    border-radius:6px; padding:6px 8px; font-size:12px}
+  .sr-only{position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important;
+    overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important}
+  .save-state{color:var(--dim); font-size:10px; line-height:1; text-align:center; white-space:nowrap;
+    font-variant-numeric:tabular-nums}
+  .draft-actions{position:fixed; z-index:50; left:50%; bottom:16px; width:min(520px,calc(100% - 24px));
+    transform:translate(-50%,calc(100% + 32px)); opacity:0; pointer-events:none;
+    display:flex; align-items:center; gap:9px; padding:10px 11px; border:1px solid rgba(27,39,51,.18);
+    border-radius:8px; background:rgba(255,255,255,.96); box-shadow:0 8px 24px rgba(27,39,51,.18);
+    transition:transform .2s ease,opacity .2s ease}
+  .draft-actions.on{transform:translate(-50%,0); opacity:1; pointer-events:auto}
+  .draft-actions .draft-label{flex:1; min-width:0; font-size:11px; color:var(--ash)}
+  .draft-actions .draft-label b{display:block; color:var(--ink); font-family:var(--disp); font-size:13px}
+  .draft-actions button{min-height:44px; padding:8px 15px; border-radius:7px; font-family:var(--disp);
+    font-size:13px; font-weight:800; letter-spacing:.04em; cursor:pointer}
+  .draft-actions .revert{border:1px solid var(--edge); background:var(--panel2); color:var(--ash)}
+  .draft-actions .commit{border:1px solid var(--gold); background:#fff4d8; color:var(--gold-deep)}
+  .draft-actions button:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+  .draft-actions button:disabled{opacity:.42; cursor:default}
+  /* 漸變加載進度條 — a shimmering gold bar along the header's bottom edge */
+  #prog{position:absolute; left:0; right:0; bottom:-1px; height:3px; overflow:hidden; opacity:0; transition:opacity .25s}
+  #prog.on{opacity:1}
+  #progbar{height:100%; width:0%; border-radius:0 3px 3px 0;
+    background:linear-gradient(90deg,#b3801a,#f6d68a 50%,#b3801a); background-size:220% 100%;
+    box-shadow:0 0 8px rgba(214,154,46,.5); animation:shimmer 1s linear infinite; transition:width .22s ease}
+  @keyframes shimmer{to{background-position:-220% 0}}
+
+  /* ── layout ── */
+  .grid{display:grid; grid-template-columns:minmax(0,1fr); gap:18px; margin-top:18px}
+  .col{min-width:0; display:flex; flex-direction:column; gap:16px}
+  @media(min-width:980px){
+    #resultsCol{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch}
+    #resultsCol>.card:last-child{grid-column:1/-1}
+  }
+  @media(min-width:1440px){
+    #resultsCol{grid-template-columns:minmax(300px,.78fr) minmax(420px,1.1fr) minmax(420px,1.12fr)}
+    #resultsCol>.card:last-child{grid-column:auto}
+  }
+
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--edge);
+    border-radius:12px; padding:16px 16px 15px}
+  .card h2{font-family:var(--disp); font-weight:800; font-size:14px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--gold-hi); margin-bottom:3px; display:flex; align-items:center; gap:8px}
+  .card h2 .tag{font-family:var(--mono); font-weight:600; font-size:9px; letter-spacing:.1em; color:var(--dim);
+    text-transform:none; border:1px solid var(--edge); border-radius:4px; padding:1px 6px}
+  .card .lede{font-size:11.5px; color:var(--ash); margin-bottom:13px}
+  .section-nav{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; padding:6px;
+    border:1px solid var(--edge); border-radius:8px; background:rgba(255,255,255,.78)}
+  .section-nav a{--nav:#647786; min-width:0; min-height:44px; display:flex; align-items:center; gap:9px;
+    padding:7px 10px; border-radius:6px; color:var(--ash); text-decoration:none; border:1px solid transparent}
+  .section-nav a:hover{background:var(--panel2); border-color:var(--edge); color:var(--ink)}
+  .section-nav a:focus-visible{outline:2px solid var(--nav); outline-offset:1px}
+  .section-nav .nav-no{width:25px; height:25px; flex:0 0 25px; display:grid; place-items:center;
+    border-radius:5px; color:#fff; background:var(--nav); font-family:var(--disp); font-weight:900; font-size:11px}
+  .section-nav b{display:block; color:var(--ink); font-family:var(--disp); font-size:11.5px; line-height:1.1}
+  .section-nav small{display:block; color:var(--dim); font-size:9px; line-height:1.2; margin-top:2px}
+  .section-nav .nav-math{--nav:#aa7412}.section-nav .nav-show{--nav:#0d7d8c}
+  .section-nav .nav-depth{--nav:#276fa0}.section-nav .nav-guide{--nav:#657480}
+  @media(max-width:680px){.section-nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+  .domain-card{--domain:#657480; --domain-soft:#f3f6f8; position:relative; border-top:3px solid var(--domain)}
+  .domain-math{--domain:#aa7412; --domain-soft:#fff8e8}
+  .domain-show{--domain:#0d7d8c; --domain-soft:#eef8f8}
+  .domain-depth{--domain:#276fa0; --domain-soft:#eef5fa}
+  .domain-guide{--domain:#657480; --domain-soft:#f3f6f8}
+  .domain-head{display:flex; align-items:center; gap:11px; margin-bottom:12px}
+  .domain-head .domain-no{width:36px; height:36px; flex:0 0 36px; display:grid; place-items:center;
+    border-radius:7px; color:#fff; background:var(--domain); font-family:var(--disp); font-size:15px; font-weight:900}
+  .domain-title{min-width:0}
+  .domain-title h2{margin:0; color:var(--domain); font-size:16px}
+  .domain-title p{font-size:10px; color:var(--dim); margin-top:2px}
+  .domain-card>.lede{padding:9px 11px; border-left:3px solid var(--domain);
+    background:var(--domain-soft); border-radius:0 6px 6px 0}
+  .math-addon{margin-top:14px; padding-top:13px; border-top:1px solid var(--edge)}
+
+  /* ── dashboard ── */
+  .bignum{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:6px}
+  .bignum .v{font-family:var(--disp); font-weight:900; font-size:52px; line-height:.9;
+    background:linear-gradient(180deg,#d69a2e,#9a6410 88%); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .bignum .v.bad{background:linear-gradient(180deg,#e2564d,#b02a22); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .bignum .lab{font-size:11px; color:var(--ash)}
+  .pill{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.05em; padding:3px 9px; border-radius:20px}
+  .pill.good{background:rgba(31,157,92,.12); color:var(--good); border:1px solid rgba(31,157,92,.4)}
+  .pill.bad{background:rgba(209,59,59,.10); color:var(--bad); border:1px solid rgba(209,59,59,.4)}
+  .pill.pending{background:#edf1f4; color:var(--dim); border:1px solid var(--edge)}
+  .masked-number{display:inline-block; min-width:72px; color:transparent!important; -webkit-text-fill-color:transparent!important;
+    background:#dfe5ea!important; border-radius:6px; user-select:none}
+  #ceilVal.masked-number{min-width:154px}
+  .masked-text{display:inline-block; min-width:82px; color:transparent!important; background:#e4e9ed; border-radius:4px; user-select:none}
+  .skeleton-line{display:inline-block; width:74px; height:12px; border-radius:4px; background:#dfe5ea; vertical-align:middle}
+  .skeleton-line.short{width:54px}
+  .results-pending .chart{opacity:.72}
+
+  .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin-top:12px}
+  @media(max-width:520px){ .kpis{grid-template-columns:repeat(2,1fr)} }
+  .kpi{background:var(--panel2); border:1px solid var(--edge); border-radius:9px; padding:9px 10px}
+  .kpi .k{font-size:9.5px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase}
+  .kpi .val{font-family:var(--disp); font-weight:800; font-size:21px; margin-top:2px}
+  .kpi .val small{font-family:var(--mono); font-size:11px; font-weight:600; color:var(--ash)}
+
+  /* chart */
+  .chart{width:100%; height:210px; margin-top:4px; overflow:visible}
+  .chart text{font-family:var(--mono); fill:var(--ash)}
+
+  /* ── frequency table ── */
+  table{width:100%; border-collapse:collapse; font-size:12px}
+  th,td{text-align:right; padding:6px 8px; border-bottom:1px solid var(--edge)}
+  th{font-size:9.5px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase; font-weight:600}
+  td:first-child,th:first-child{text-align:left}
+  #freq{font-size:11px}
+  #freq th,#freq td{padding-left:5px; padding-right:5px; white-space:nowrap}
+  .table-scroll{width:100%; overflow-x:auto; overscroll-behavior-inline:contain}
+  .beastname{font-family:var(--disp); font-weight:800; letter-spacing:.04em}
+  .ok{color:var(--good)} .off{color:var(--warn)} .miss{color:var(--bad)}
+  .target{color:var(--dim); font-size:11px}
+
+  /* ── controls ── */
+  .grp{margin-bottom:15px}
+  .grp:last-child{margin-bottom:0}
+  .grp>.gh{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--cyan); font-weight:700;
+    margin-bottom:8px; display:flex; align-items:center; gap:7px}
+  .grp>.gh::after{content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--edge),transparent)}
+  .row{display:flex; align-items:center; gap:10px; margin-bottom:7px}
+  .row label{flex:1; font-size:12px; color:var(--ink)}
+  .row label small{display:block; color:var(--dim); font-size:10px}
+  .beast-rule-note{font-size:10px; color:var(--dim); line-height:1.45; margin:-1px 0 8px}
+  .shark-rate-note{font-size:10px; color:var(--dim); line-height:1.45; margin:-1px 0 8px}
+  .shark-rate-note b{color:var(--warn); font-variant-numeric:tabular-nums}
+  .beast-rule-grid{display:grid; grid-template-columns:minmax(100px,1fr) 72px 72px; gap:5px 7px; align-items:center}
+  .beast-rule-grid .bh{font-size:9px; color:var(--dim); letter-spacing:.06em; text-align:right}
+  .beast-rule-grid .bh:first-child{text-align:left}
+  .beast-rule-name{font-family:var(--disp); font-size:11px; font-weight:800; letter-spacing:.035em}
+  .beast-rule-grid input[type=number]{width:100%; box-sizing:border-box}
+  input[type=number]{width:74px; font-family:var(--mono); font-size:12.5px; text-align:right;
+    background:var(--panel2); color:var(--gold-hi); font-weight:600; border:1px solid var(--edge); border-radius:6px; padding:5px 8px}
+  input[type=number]:focus{outline:none; border-color:var(--gold); background:#fffdf6; box-shadow:0 0 0 3px rgba(192,135,26,.14)}
+  input[type=range]{accent-color:var(--gold); min-width:0}
+  @media(max-width:680px){
+    body input[type=number],body select.mini,body .roundsel select{min-height:44px; font-size:16px}
+    body .allocation-label{min-height:44px}
+  }
+  select.mini{font-family:var(--mono); background:var(--panel2); color:var(--gold-hi); font-weight:600; border:1px solid var(--edge);
+    border-radius:6px; padding:5px 8px; font-size:12px}
+  .weight-editor{margin-top:2px}
+  .weight-meta{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px;
+    color:var(--dim); font-size:10px}
+  .weight-meta b{color:var(--good); font-variant-numeric:tabular-nums}
+  .weightbar{display:flex; height:7px; overflow:hidden; border-radius:4px; background:var(--edge); margin-bottom:9px}
+  .weightbar span{height:100%; min-width:0}
+  .allocation-labels{display:grid; grid-template-columns:repeat(auto-fit,minmax(62px,1fr)); gap:4px; margin-bottom:5px}
+  .allocation-label{min-width:0; min-height:38px; display:flex; align-items:center; justify-content:space-between; gap:4px;
+    padding:5px 4px; border:0; border-bottom:2px solid transparent; background:transparent;
+    color:var(--ash); font-family:var(--mono); cursor:pointer}
+  .allocation-label:hover{background:rgba(255,255,255,.66)}
+  .allocation-label:focus-visible{outline:2px solid var(--choice); outline-offset:1px}
+  .allocation-label.active{border-bottom-color:var(--choice); color:var(--ink)}
+  .allocation-key{display:flex; align-items:center; min-width:0; gap:5px; font-size:10px; font-weight:700; white-space:nowrap}
+  .allocation-swatch{width:9px; height:9px; flex:0 0 9px; border-radius:2px; background:var(--choice)}
+  .allocation-value{font-variant-numeric:tabular-nums; color:var(--ink); font-size:10.5px; font-weight:700}
+  .allocation-bar{position:relative; display:flex; width:100%; height:42px; overflow:visible;
+    border:1px solid rgba(27,39,51,.16); border-radius:7px; background:var(--edge); touch-action:none}
+  .allocation-segment{position:relative; min-width:0; height:100%; overflow:hidden; color:#fff;
+    cursor:pointer; user-select:none}
+  .allocation-segment:first-child{border-radius:6px 0 0 6px}
+  .allocation-segment:last-of-type{border-radius:0 6px 6px 0}
+  .allocation-segment.active{box-shadow:inset 0 0 0 2px rgba(255,255,255,.9)}
+  .allocation-segment span{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    padding:0 5px; white-space:nowrap; font-size:10px; font-weight:800; text-shadow:0 1px 1px rgba(27,39,51,.38)}
+  .allocation-handle{--choice:#0d7d8c; position:absolute; z-index:3; top:-5px; width:22px; height:50px;
+    border:0; background:transparent; cursor:ew-resize; touch-action:none}
+  .allocation-handle.left{transform:translateX(-100%)}
+  .allocation-handle.right{transform:none}
+  .allocation-handle::before{content:''; position:absolute; top:7px; width:6px; height:36px;
+    border:2px solid #fff; border-radius:3px; background:var(--choice); box-shadow:0 1px 3px rgba(27,39,51,.42)}
+  .allocation-handle.left::before{right:0}
+  .allocation-handle.right::before{left:0}
+  .allocation-handle::after{content:''; position:absolute; top:21px; width:0; height:0}
+  .allocation-handle.left::after{left:3px; border-top:5px solid transparent; border-bottom:5px solid transparent;
+    border-right:6px solid var(--choice)}
+  .allocation-handle.right::after{right:3px; border-top:5px solid transparent; border-bottom:5px solid transparent;
+    border-left:6px solid var(--choice)}
+  .allocation-handle[hidden]{display:none}
+  .allocation-handle:focus-visible{outline:2px solid var(--choice); outline-offset:2px; border-radius:4px}
+  .density-editor{margin-top:2px}
+  .density-note{font-size:10px; color:var(--dim); margin:-1px 0 10px}
+  .stage-jump{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-bottom:11px}
+  .stage-jump a{min-width:0; min-height:44px; display:flex; align-items:center; gap:8px;
+    padding:7px 9px; border:1px solid var(--edge); border-top:3px solid var(--band); border-radius:7px;
+    background:rgba(255,255,255,.7); color:var(--ink); text-decoration:none}
+  .stage-jump a:hover{background:#fff}
+  .stage-jump a:focus-visible{outline:2px solid var(--band); outline-offset:2px}
+  .stage-jump .stage-index{width:26px; height:26px; flex:0 0 26px; display:grid; place-items:center;
+    border-radius:5px; background:var(--band); color:#fff; font-family:var(--disp); font-size:10.5px; font-weight:900}
+  .stage-jump b{display:block; color:var(--band); font-family:var(--disp); font-size:10.5px}
+  .stage-jump small{display:block; margin-top:1px; color:var(--dim); font-size:8px; white-space:nowrap}
+  .band-shallows{--band:#b47b18}.band-reef{--band:#0d8885}
+  .band-deeper{--band:#2873a8}.band-abyss{--band:#5c4d8c}
+  .density-bands{display:grid; grid-template-columns:1fr; gap:12px}
+  .density-band{min-width:0; padding:12px; border:1px solid var(--edge);
+    border-top:3px solid var(--band); border-radius:8px; background:rgba(255,255,255,.62);
+    scroll-margin-top:92px}
+  .density-band-head{display:flex; align-items:center; gap:9px; margin-bottom:9px}
+  .density-band-head .stage-index{width:30px; height:30px; flex:0 0 30px; display:grid; place-items:center;
+    border-radius:6px; background:var(--band); color:#fff; font-family:var(--disp); font-size:11px; font-weight:900}
+  .density-band-title{min-width:0}
+  .density-band-title b{display:block; color:var(--band); font-family:var(--disp); font-size:12px}
+  .density-band-title small{display:block; margin-top:1px; color:var(--dim); font-size:8.5px}
+  .density-section{display:flex; align-items:center; gap:8px; margin:11px 0 2px; color:var(--band);
+    font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase}
+  .density-section::after{content:''; flex:1; height:1px; background:rgba(219,225,232,.9)}
+  .density-row{padding:7px 0 9px; border-bottom:1px solid rgba(219,225,232,.72)}
+  .density-row:last-child{margin-bottom:0}
+  .density-row-h{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px}
+  .density-row-h label{font-family:var(--disp); font-size:11.5px; font-weight:800; color:var(--ink)}
+  .density-row .allocation-labels{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .density-row.appearance-row .allocation-labels{grid-template-columns:repeat(auto-fit,minmax(64px,1fr))}
+  .density-ev{text-align:right; font-variant-numeric:tabular-nums; font-size:10.5px; color:var(--cyan); font-weight:700}
+  .density-subhead{display:flex; align-items:center; gap:8px; margin:9px 0 0; color:var(--band);
+    font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase}
+  .density-subhead::after{content:''; flex:1; height:1px; background:rgba(219,225,232,.9)}
+  @media(min-width:1180px){.density-bands{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:680px){.stage-jump{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .event-grid{display:block}
+  @media(min-width:1180px){
+    .event-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px;
+      margin-bottom:18px}
+    .event-grid>.grp{min-width:0; margin:0}
+    .event-grid>.grp+.grp{padding-left:20px; border-left:1px solid var(--edge)}
+  }
+  @media(min-width:1180px){
+    .mech{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:28px}
+    .mech .m{padding:0 0 12px; border-bottom:1px solid rgba(219,225,232,.72)}
+  }
+
+  /* pool table editor — RTP contribution is the edited source of truth.
+     Probability/frequency and the residual ×0 outcome are derived. */
+  .rtp-target{display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:10px 11px; margin:2px 0 10px; border:1px solid var(--edge); border-radius:8px; background:#f8fafb}
+  .rtp-target label{font-family:var(--disp); font-size:12px; font-weight:800; color:var(--ink)}
+  .rtp-target label small{display:block; margin-top:2px; font-family:var(--mono); font-size:9.5px;
+    font-weight:500; color:var(--dim)}
+  .rtp-target .target-input{display:flex; align-items:center; gap:5px; color:var(--gold-deep); font-weight:800}
+  .rtp-target input{width:88px}
+  .ptbl{width:100%; font-size:12px}
+  .ptbl .prow{display:grid; grid-template-columns:26px minmax(68px,1fr) minmax(76px,1fr) minmax(82px,1fr) 96px;
+    gap:7px; align-items:center; margin-bottom:7px}
+  .ptbl .prow.head{padding-bottom:2px; border-bottom:1px solid var(--edge)}
+  .ptbl .slot{font-family:var(--disp); font-weight:800; color:var(--dim); text-align:center}
+  .ptbl input:disabled{opacity:.4; color:var(--dim)}
+  .ptbl .ph{font-size:9px; letter-spacing:.04em; color:var(--dim); text-transform:uppercase}
+  .ptbl .ph.r{text-align:center}
+  .ptbl input,.ptbl select{width:100%; min-width:0; height:34px; font-variant-numeric:tabular-nums}
+  .ptbl select{font-family:var(--mono); font-size:11.5px; color:var(--ink); background:var(--panel2);
+    border:1px solid var(--edge); border-radius:6px; padding:4px 5px}
+  .ptbl .freq{text-align:right; font-variant-numeric:tabular-nums; color:var(--ash); font-size:11.5px; white-space:nowrap}
+  .ptbl .freq b{font-family:var(--disp); font-weight:700; color:var(--ink); font-size:12.5px}
+  .ptbl .poolmeta{margin:0 0 5px}
+  .ptbl .poolbar{margin-bottom:11px}
+  .loss-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px;
+    margin-top:9px; border:1px dashed var(--edge); border-radius:7px; color:var(--ash); font-size:11px}
+  .loss-row b{font-family:var(--disp); font-size:13px; color:var(--ink)}
+  .sump{display:flex; justify-content:space-between; align-items:center; margin-top:9px; padding-top:9px;
+    border-top:1px solid var(--edge); font-size:11.5px; color:var(--ash)}
+  .sump b{font-family:var(--disp); font-size:15px}
+  .sump .warnp{color:var(--bad)}
+  @media(max-width:600px){
+    .ptbl .prow{grid-template-columns:18px repeat(3,minmax(0,1fr)) 68px; gap:4px}
+    .ptbl input,.ptbl select{font-size:11px; padding:4px 5px}
+    .ptbl .ph{font-size:8px}
+  }
+  /* mechanism docs */
+  .mech{font-size:12px; color:var(--ash); line-height:1.62}
+  .mech .m{margin-bottom:12px}
+  .mech .m:last-child{margin-bottom:0}
+  .mech b{color:var(--ink); font-weight:700}
+  .mech .mh{font-family:var(--disp); font-weight:800; font-size:12.5px; letter-spacing:.06em; color:var(--gold-hi);
+    text-transform:uppercase; margin-bottom:3px}
+  .mech code{font-family:ui-monospace,monospace; font-size:11px; background:#e7eef0; color:#0a6d7a;
+    padding:1px 5px; border-radius:4px}
+  .note{font-size:11px; color:var(--dim); margin-top:4px; padding-left:10px; border-left:2px solid var(--edge)}
+  .foot{color:var(--dim); font-size:11px; text-align:center; margin-top:26px}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd">
+    <div class="logo">DEEPER<small>經濟參數調控台 · v2.21</small></div>
+    <div class="spacer"></div>
+    <div class="roundsel">rounds/深度
+      <select id="rounds">
+        <option value="6000">6k · 快</option>
+        <option value="12000" selected>12k · 準</option>
+        <option value="30000">30k · 慢</option>
+      </select>
+    </div>
+    <span class="sr-only" id="status" aria-live="polite">就緒</span>
+    <div class="run-stack">
+      <button class="run" id="run">跑模擬 ▸</button>
+      <span class="save-state" id="saveState">最後設定 —</span>
+    </div>
+  </div>
+  <div id="prog"><div id="progbar"></div></div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <!-- LEFT: dashboard -->
+    <div class="col results-pending" id="resultsCol" aria-busy="true">
+      <div class="card" id="dash">
+        <h2>模擬結果 <span class="tag" id="dashmeta">—</span></h2>
+        <div class="lede">RTP 天花板＝最佳簡單策略（潛到某深度就收）的回報。<b style="color:var(--ink)">必須 &lt;100%</b>，否則盲策略能贏過莊家（可套利）。</div>
+        <div class="bignum">
+          <span class="v" id="ceilVal">—</span>
+          <div>
+            <div class="lab">RTP 天花板 <span id="ceilL"></span></div>
+            <span class="pill" id="ceilPill">—</span>
+          </div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><div class="k">最佳人類玩法</div><div class="val" id="kHuman">—</div></div>
+          <div class="kpi"><div class="k">命中率 (payout&gt;0)</div><div class="val" id="kWin">—</div></div>
+          <div class="kpi"><div class="k">鯊魚咬斷/段</div><div class="val" id="kCut">—</div></div>
+          <div class="kpi"><div class="k">加注/局</div><div class="val" id="kAnte">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>RTP × 深度 <span class="tag">演出不改寫結果</span></h2>
+        <div class="lede">每一柱＝固定停在該層收網的總 RTP。虛線＝100% 套利線；巨獸只讀 sealed pool budget 選擇表演，不是另一條 RTP lane。</div>
+        <svg class="chart" id="chart" viewBox="0 0 640 210" preserveAspectRatio="none"></svg>
+      </div>
+
+      <div class="card">
+        <h2>巨獸表演頻率 <span class="tag">水池門檻 × 階層機率</span></h2>
+        <div class="table-scroll" tabindex="0" aria-label="巨獸表演頻率表，可水平捲動">
+          <table id="freq">
+            <thead><tr><th>表演</th><th>水池門檻</th><th>出現（實測）</th><th>平均開獎倍數</th><th>預算不足斷鉤</th><th>大白鯊預告</th><th>條件轉換</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- controls + docs -->
+    <div class="col settings-col">
+      <nav class="section-nav" aria-label="設定分類">
+        <a class="nav-math" href="#mathSection"><span class="nav-no">01</span><span><b>倍率模型</b><small>RTP／倍率／加注</small></span></a>
+        <a class="nav-show" href="#showSection"><span class="nav-no">02</span><span><b>表演事件</b><small>巨獸／鯊魚</small></span></a>
+        <a class="nav-depth" href="#depthSection"><span class="nav-no">03</span><span><b>四階深度</b><small>數量／倍率權重</small></span></a>
+        <a class="nav-guide" href="#guideSection"><span class="nav-no">04</span><span><b>機制說明</b><small>規則快速查閱</small></span></a>
+      </nav>
+
+      <section class="card domain-card domain-math" id="mathSection">
+        <div class="domain-head"><span class="domain-no">01</span><div class="domain-title"><h2>倍率模型</h2><p>只管理獎金數學與投注，不指定任何表演角色</p></div></div>
+        <div class="lede"><b style="color:var(--ink)">先設定目標 RTP，再把 RTP 直接分配到最多 10 組匿名結果</b>。每組直接設定最小／最大倍率；兩者相同就是固定倍率，不同就是區間。命中機率與「多久一次」由區間平均倍率及 RTP 佔比反推。</div>
+        <div class="ptbl" id="ptbl"></div>
+        <div class="sump"><span>已分配 <b id="sump">—</b> · 固定 <b id="ordrtp">—</b> · 區間 <b id="beastrtp">—</b> · 理論 RTP <b id="tev">—</b></span><span id="sumwarn"></span></div>
+        <div class="math-addon"><div class="grp" id="grpAnte"><div class="gh">深度加注</div></div></div>
+      </section>
+
+      <section class="card domain-card domain-show" id="showSection">
+        <div class="domain-head"><span class="domain-no">02</span><div class="domain-title"><h2>表演事件</h2><p>控制巨獸與鯊魚的出場節奏；不改寫 RTP 結果</p></div></div>
+        <div class="lede">倍率保證巨獸、PULL 事件鏈與 SINK 鯊魚是三條獨立表演規則。這裡只決定誰出場、何時出場；玩家獎金仍以封存水池為準。</div>
+        <div class="event-grid">
+          <div class="grp" id="grpBeast"><div class="gh">保證巨獸（讀取水池門檻）</div></div>
+          <div class="grp" id="grpPullBeast"><div class="gh">PULL 事件－巨獸（非強制巨獸局才抽）</div></div>
+          <div class="grp" id="grpShark"><div class="gh">SINK 事件－鯊魚（SINK 每段都抽）</div></div>
+        </div>
+      </section>
+
+      <section class="card domain-card domain-depth" id="depthSection">
+        <div class="domain-head"><span class="domain-no">03</span><div class="domain-title"><h2>四階深度演出</h2><p>每一階的物件數量與魚／泡泡倍率完全獨立</p></div></div>
+        <div class="grp" id="grpSpawn"></div>
+        <div class="row" style="margin-top:12px"><button class="run" id="reset" style="font-size:12px;padding:8px 16px;background:var(--panel2);color:var(--ash);box-shadow:none;border:1px solid var(--edge)">↺ 還原預設</button></div>
+      </section>
+
+      <section class="card domain-card domain-guide" id="guideSection">
+        <div class="domain-head"><span class="domain-no">04</span><div class="domain-title"><h2>機制說明</h2><p>數學、表演與交付規則快速查閱</p></div></div>
+        <div class="mech">
+          <div class="m"><div class="mh">四階深度與模擬口徑</div>SHALLOWS／REEF／DEEPER／ABYSS 分別為 <b>3／6／9／12 段</b>，一局最多 30 段。RTP 會在 12 個固定收網點各跑上方所選局數；事件頻率統一以<b>第 20 段</b>評估。</div>
+          <div class="m"><div class="mh">水池制（結果先抽）</div>先設定總 RTP，再把 RTP 佔比分配給匿名倍率結果；系統以「該列 RTP ÷ 平均倍率」反推命中機率，剩餘機率自動成為 ×0。魚、泡泡與巨獸只負責演出，<b>RTP 不屬於任何魚種或表演</b>。</div>
+          <div class="m"><div class="mh">SINK 鯊魚＝每段獨立抽</div>每段只看出現率與 bite 表演率，不讀水池正負；咬斷時未付預算與 safe-bank 全部滾到下一局。沒咬中就變成<b>可設定倍率區間的獎品魚</b>。</div>
+          <div class="m"><div class="mh">巨獸＝倍率保證＋PULL 事件鏈</div>先依預算由利維坦→蒼龍→大白鯊逐級判定；倍率保證命中必給獎、不斷鉤，並以自然進路徑的金魚銜接演出。只有未命中強制巨獸才抽 PULL 事件鏈：按是否鉤到金魚決定預告率，再抽大白鯊與蒼龍；<b>預告可落空</b>，預算不足只改成斷鉤表演，不改寫獎金。</div>
+          <div class="m"><div class="mh">魚／泡泡＝隨深度升值、實值賠付</div>四個深度帶各自設定魚／泡泡的倍率權重，預設越深高倍占比越高；倍率仍與匿名 opening／ANTE 抽樣分離，且<b>抓到後畫面多少就實付多少</b>。水池不足時只會留下清楚水隙，不會顯示 100 卻只付 30。</div>
+          <div class="m"><div class="mh">深度演出＝數量與倍率同區設定</div>SHALLOWS／REEF／DEEPER／ABYSS 各自整合魚、泡泡、金魚的每段 0／1／2／3 數量，以及魚／泡泡倍率權重；只影響該帶，不會偷套其他深度。</div>
+          <div class="m"><div class="mh">★ 殘水滾存（safe-bank）</div>自願收網沒撈完的殘水，<b>滾成下一局的安全銀行</b>，下次收網疊加付出——<b>鯊魚與巨獸都不能改寫</b>。所以<b>抽到的水池何時開獎都拿得到</b>（play-independent），只是分次拿。</div>
+          <div class="m"><div class="mh">為什麼深度不改 RTP</div>opening 與每筆 ANTE 都是自己的 97% sealed pool；未撈完部分進 safe-bank。深度只改變本局交付量與投注量，巨獸門檻也只換演出。天花板仍必須 &lt;100%。</div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="foot">跑真引擎 <code style="font-family:ui-monospace">simSummary()</code>（＝遊戲同一份 <code style="font-family:ui-monospace">simRound</code>）· 上方局數 × 12 個收網深度 · 未保存草稿不影響遊戲 · 正式 200k 凍結狀態見 docs/ECONOMY-V2.md</div>
+</div>
+<div class="draft-actions" id="draftActions" aria-live="polite" aria-hidden="true">
+  <div class="draft-label"><b>參數已修改</b><span>尚未保存，離開前請確認</span></div>
+  <button class="revert" id="revertDraft">恢復</button>
+  <button class="commit" id="saveDraft">保存</button>
+</div>
+
+<script type="module">
+import { CFG, LAYERS, applyCfg, rebuildCfg } from './src/engine/world.js';
+import { simSummary } from './src/engine/tuning.js';
+import { SAVED_CFG_KEY, SAVED_CFG_CHANNEL, readSavedCfg } from './src/engine/saved-config.js';
+
+// Convert the shipped probability table into the operator-facing RTP model.
+// The ×0 loss row is residual and therefore never consumes one of the 10 slots.
+const defaultPoolRows = [
+  ...CFG.poolExact.filter(r=>(+r.mult||0)>0).map(r=>({
+    min:+r.mult, max:+r.mult, rtpShare:(+r.p||0)*(+r.mult||0)*100,
+  })),
+  ...CFG.poolRange.map(r=>({
+    min:+r.min||0, max:+r.max||0,
+    rtpShare:(+r.p||0)*(((+r.min||0)+(+r.max||0))/2)*100,
+  })),
+];
+while(defaultPoolRows.length<10) defaultPoolRows.push({min:1,max:1,rtpShare:0});
+const defaultTargetRtp=defaultPoolRows.reduce((a,r)=>a+r.rtpShare,0);
+const defaultAntePool=structuredClone(CFG.antePool);
+const defaultAnteEv=defaultAntePool.reduce((a,r)=>a+(+r.p||0)*(+r.mult||0),0);
+
+// deep clone the shipped defaults so ↺ can restore them
+const DEFAULTS = structuredClone({
+  targetRtp:defaultTargetRtp, poolRows:defaultPoolRows.slice(0,10),
+  poolExact: CFG.poolExact, poolRange: CFG.poolRange, antePool:CFG.antePool,
+  beastShowRules: CFG.beastShowRules,
+  goldFishTeaseP: CFG.goldFishTeaseP,
+  noGoldFishTeaseP: CFG.noGoldFishTeaseP,
+  teaseToGreatWhiteP: CFG.teaseToGreatWhiteP,
+  greatWhiteToMosasaurP: CFG.greatWhiteToMosasaurP,
+  anteAmt: CFG.anteAmt, anteFrom: CFG.anteFrom, sharkSpawnP: CFG.sharkSpawnP,
+  sharkBiteP: CFG.sharkBiteP, sharkPrizeMin:CFG.sharkPrizeMin, sharkPrizeMax:CFG.sharkPrizeMax,
+  spawnDensity: CFG.spawnDensity,
+  appearanceByBand: CFG.appearanceByBand,
+});
+function mergeSavedCfg(base,saved){
+  if(Array.isArray(base)){
+    if(!Array.isArray(saved)) return structuredClone(base);
+    return base.map((item,i)=>i<saved.length?mergeSavedCfg(item,saved[i]):structuredClone(item));
+  }
+  if(base && typeof base==='object'){
+    const source=saved && typeof saved==='object' && !Array.isArray(saved) ? saved : {};
+    return Object.fromEntries(Object.entries(base).map(([k,v])=>[k,mergeSavedCfg(v,source[k])]));
+  }
+  return saved===undefined ? base : saved;
+}
+function migrateSavedRecord(record){
+  if(!record?.cfg) return record;
+  const next=structuredClone(record);
+  if(Array.isArray(next.cfg.poolRows)){
+    next.cfg.poolRows=next.cfg.poolRows.map(r=>{
+      if(r.min!==undefined || r.max!==undefined){
+        const min=Math.max(0,+r.min||0), max=Math.max(min,+r.max||0);
+        return {min,max,rtpShare:Math.max(0,+r.rtpShare||0)};
+      }
+      const mult=Math.max(0,+r.mult||0), spread=Math.max(0,Math.min(mult,+r.spread||0));
+      return {min:mult-spread,max:mult+spread,rtpShare:Math.max(0,+r.rtpShare||0)};
+    });
+  }
+  if(!Array.isArray(next.cfg.beastShowRules)){
+    const from=Math.max(0.5,+next.cfg.beastShowFrom||10);
+    const p=Math.max(0,Math.min(1,Number.isFinite(+next.cfg.beastShowP)?+next.cfg.beastShowP:0.5));
+    next.cfg.beastShowRules=[
+      {tier:0,min:from,p},
+      {tier:1,min:from*3,p},
+      {tier:2,min:from*10,p},
+    ];
+  }
+  if(!next.cfg.appearanceByBand
+    && (Array.isArray(next.cfg.fishAppearance)||Array.isArray(next.cfg.bubbleAppearance))){
+    const bands=['SHALLOWS','REEF','DEEPER','ABYSS'];
+    next.cfg.appearanceByBand=Object.fromEntries(bands.map(b=>[b,{
+      fish:structuredClone(Array.isArray(next.cfg.fishAppearance)
+        ? next.cfg.fishAppearance : CFG.appearanceByBand[b].fish),
+      bubble:structuredClone(Array.isArray(next.cfg.bubbleAppearance)
+        ? next.cfg.bubbleAppearance : CFG.appearanceByBand[b].bubble),
+    }]));
+  }
+  return next;
+}
+let savedRecord=migrateSavedRecord(readSavedCfg());
+let savedCfgChannel=null;
+try{ if(typeof BroadcastChannel==='function') savedCfgChannel=new BroadcastChannel(SAVED_CFG_CHANNEL); }catch{}
+// Saved operator values always win. Code changes may only add/fill defaults.
+let cfg=savedRecord?mergeSavedCfg(DEFAULTS,savedRecord.cfg):structuredClone(DEFAULTS);
+let savedAt=savedRecord?.savedAt||null;
+let unsaved=!savedRecord;
+let draftChanged=false;
+let rtpKnownRows=new WeakSet();
+const BANDS = ['SHALLOWS','REEF','DEEPER','ABYSS'];
+const $ = s => document.querySelector(s);
+
+/* ---------- build controls ---------- */
+function numInput(val, step, on){
+  const el = document.createElement('input');
+  el.type='number'; el.inputMode='decimal'; el.value=val; el.step=step; el.min=0;
+  el.addEventListener('input', ()=>{ on(parseFloat(el.value)); markDirty(); });
+  return el;
+}
+function mkNum(val, step){ const el=document.createElement('input'); el.type='number'; el.inputMode='decimal'; el.value=val; el.step=step; el.min=0; return el; }
+function syncNumberInput(el,value){
+  // Never rewrite the field under the user's caret. Repainting an active number
+  // input after every digit made multi-digit and decimal entry feel locked.
+  if(document.activeElement!==el) el.value=value;
+}
+const oneIn = p => (p>0) ? '每 <b>'+(1/p<9.95?(1/p).toFixed(1):Math.round(1/p))+'</b> 局' : '—';
+let poolCtl = [];  // {ref, min, max, share, freq, seg}
+let poolValid=true;
+
+/* RTP contribution is authoritative. Compensation always walks upward from
+   the lowest configured multiplier; it is never spread proportionally. */
+function rtpPriority(rows,exclude=-1){
+  const candidates=rows.map((r,i)=>({r,i})).filter(({i})=>i!==exclude);
+  const known=candidates.filter(({r})=>rtpKnownRows.has(r)||(+r.rtpShare||0)>0);
+  const selected=known.length?known:candidates;
+  return selected.sort((a,b)=>{
+    const amin=Math.max(0,+a.r.min||0), bmin=Math.max(0,+b.r.min||0);
+    const amax=Math.max(amin,+a.r.max||0), bmax=Math.max(bmin,+b.r.max||0);
+    return amin-bmin || amax-bmax || a.i-b.i;
+  }).map(({i})=>i);
+}
+function rtpUnits(row){ return Math.max(0,Math.round((+row.rtpShare||0)*1000)); }
+function deductRtpUnits(rows,order,units){
+  let remaining=Math.max(0,units);
+  order.forEach(i=>{
+    if(remaining<=0) return;
+    const current=rtpUnits(rows[i]), taken=Math.min(current,remaining);
+    rows[i].rtpShare=(current-taken)/1000;
+    remaining-=taken;
+  });
+  return remaining;
+}
+function rebalanceRtpShares(rows, changed, raw, total=cfg.targetRtp){
+  const totalUnits=Math.max(0,Math.round((+total||0)*1000));
+  const valueUnits=Math.max(0,Math.min(totalUnits,Math.round((+raw||0)*1000)));
+  rtpKnownRows.add(rows[changed]);
+  rows[changed].rtpShare=valueUnits/1000;
+  const order=rtpPriority(rows,changed);
+  const sumUnits=rows.reduce((a,r)=>a+rtpUnits(r),0);
+  if(sumUnits>totalUnits){
+    const leftover=deductRtpUnits(rows,order,sumUnits-totalUnits);
+    if(leftover>0) rows[changed].rtpShare=Math.max(0,valueUnits-leftover)/1000;
+  }else if(sumUnits<totalUnits){
+    const receiver=order[0]??changed;
+    rtpKnownRows.add(rows[receiver]);
+    rows[receiver].rtpShare=(rtpUnits(rows[receiver])+totalUnits-sumUnits)/1000;
+  }
+}
+function scaleRtpShares(rows,total){
+  const targetUnits=Math.max(0,Math.round((+total||0)*1000));
+  const currentUnits=rows.reduce((a,r)=>a+rtpUnits(r),0);
+  const order=rtpPriority(rows);
+  if(currentUnits>targetUnits) deductRtpUnits(rows,order,currentUnits-targetUnits);
+  else if(currentUnits<targetUnits){
+    const receiver=order[0]??0;
+    rtpKnownRows.add(rows[receiver]);
+    rows[receiver].rtpShare=(rtpUnits(rows[receiver])+targetUnits-currentUnits)/1000;
+  }
+}
+function antePoolAtTarget(targetPct){
+  const scale=defaultAnteEv>0 ? Math.max(0,+targetPct||0)/100/defaultAnteEv : 0;
+  const positive=defaultAntePool.filter(r=>(+r.mult||0)>0).map(r=>({
+    mult:+r.mult||0, p:(+r.p||0)*scale,
+  }));
+  const positiveP=positive.reduce((a,r)=>a+r.p,0);
+  return [{mult:0,p:Math.max(0,1-positiveP)},...positive];
+}
+
+function buildPoolTable(){
+  const host=$('#ptbl'); host.innerHTML=''; poolCtl=[];
+  const targetWrap=document.createElement('div'); targetWrap.className='rtp-target';
+  const targetLabel=document.createElement('label'); targetLabel.innerHTML='目標 RTP %<small>opening 與每筆 ANTE 都跟隨；10 組佔比自動補滿</small>';
+  const targetBox=document.createElement('div'); targetBox.className='target-input';
+  const target=mkNum(+cfg.targetRtp.toFixed(3),0.1); target.id='target-rtp'; target.max=100;
+  targetLabel.htmlFor=target.id; targetBox.append(target,document.createTextNode('%')); targetWrap.append(targetLabel,targetBox);
+  function applyTarget(commit=false){
+    const raw=parseFloat(target.value);
+    if(!Number.isFinite(raw) && !commit){ markDirty(); return; }
+    const next=Math.max(0,Math.min(100,Number.isFinite(raw)?raw:0));
+    cfg.targetRtp=next; scaleRtpShares(cfg.poolRows,next); repaintPool(); markDirty();
+    if(commit) target.value=+next.toFixed(3);
+  }
+  target.addEventListener('input',()=>applyTarget(false));
+  target.addEventListener('blur',()=>applyTarget(true));
+  const meta=document.createElement('div'); meta.className='weight-meta poolmeta';
+  meta.innerHTML='<span>增減只從最低倍率開始補差；不足才往上遞補</span><b></b>';
+  const bar=document.createElement('div'); bar.className='weightbar poolbar';
+  const segments=[];
+  cfg.poolRows.forEach((r,i)=>{ const seg=document.createElement('span'); seg.style.background=WEIGHT_COLORS[i%WEIGHT_COLORS.length]; bar.appendChild(seg); segments.push(seg); });
+  host.append(targetWrap,meta,bar);
+  const head=document.createElement('div'); head.className='prow head';
+  head.innerHTML='<span class="ph r">#</span><span class="ph r">最小 ×</span><span class="ph r">最大 ×</span><span class="ph r">RTP 佔比</span><span class="ph r">多久一次</span>';
+  host.appendChild(head);
+  cfg.poolRows.forEach((r,i)=>{
+    if((+r.rtpShare||0)>0) rtpKnownRows.add(r);
+    const row=document.createElement('div'); row.className='prow';
+    const slot=document.createElement('span'); slot.className='slot'; slot.textContent=String(i+1).padStart(2,'0');
+    const min=mkNum(r.min,0.1); min.setAttribute('aria-label',`第 ${i+1} 組最小倍率`);
+    const max=mkNum(r.max,0.1); max.setAttribute('aria-label',`第 ${i+1} 組最大倍率`);
+    const share=mkNum(r.rtpShare,0.001); share.max=100; share.setAttribute('aria-label',`第 ${i+1} 組 RTP 佔比`);
+    const freq=document.createElement('span'); freq.className='freq';
+    function applyMin(commit=false){
+      const raw=parseFloat(min.value);
+      if(!Number.isFinite(raw) && !commit){ markDirty(); return; }
+      r.min=Math.max(0,Number.isFinite(raw)?raw:0);
+      if(r.max<r.min){ r.max=r.min; max.value=r.max; }
+      rtpKnownRows.add(r);
+      repaintPool(); markDirty();
+      if(commit) min.value=+r.min.toFixed(3);
+    }
+    function applyMax(commit=false){
+      const raw=parseFloat(max.value);
+      if(!Number.isFinite(raw) && !commit){ markDirty(); return; }
+      r.max=Math.max(0,Number.isFinite(raw)?raw:0);
+      if(r.min>r.max){ r.min=r.max; min.value=r.min; }
+      rtpKnownRows.add(r);
+      repaintPool(); markDirty();
+      if(commit) max.value=+r.max.toFixed(3);
+    }
+    function applyShare(commit=false){
+      const raw=parseFloat(share.value);
+      if(!Number.isFinite(raw) && !commit){ markDirty(); return; }
+      rebalanceRtpShares(cfg.poolRows,i,Number.isFinite(raw)?raw:0);
+      repaintPool(); markDirty();
+      if(commit) share.value=+(+r.rtpShare||0).toFixed(3);
+    }
+    min.addEventListener('input',()=>applyMin(false));
+    min.addEventListener('blur',()=>applyMin(true));
+    max.addEventListener('input',()=>applyMax(false));
+    max.addEventListener('blur',()=>applyMax(true));
+    share.addEventListener('input',()=>applyShare(false));
+    share.addEventListener('blur',()=>applyShare(true));
+    row.append(slot,min,max,share,freq); host.appendChild(row);
+    poolCtl.push({ref:r,min,max,share,freq,seg:segments[i]});
+  });
+  const loss=document.createElement('div'); loss.className='loss-row'; loss.id='loss-row';
+  loss.innerHTML='<span>自動補入 ×0 未中獎</span><span id="loss-freq">—</span>';
+  host.appendChild(loss);
+  repaintPool();
+}
+
+/* Convert RTP allocation back into the engine's probability rows:
+   p = RTP contribution / mean multiplier. The unused probability is ×0. */
+function repaintPool(){
+  let totalShare=0,fixedShare=0,rangeShare=0,totalP=0,error='';
+  const exact=[{mult:0,p:0}], ranges=[];
+  poolCtl.forEach(c=>{
+    const r=c.ref, share=Math.max(0,+r.rtpShare||0);
+    const min=Math.max(0,+r.min||0), max=Math.max(min,+r.max||0);
+    const mean=(min+max)/2;
+    r.min=min; r.max=max;
+    totalShare+=share; if(max>min) rangeShare+=share; else fixedShare+=share;
+    syncNumberInput(c.min,+min.toFixed(3));
+    syncNumberInput(c.max,+max.toFixed(3));
+    syncNumberInput(c.share,+share.toFixed(3));
+    const p=share>0 && mean>0 ? share/100/mean : 0;
+    if(share>0 && mean<=0) error=`第 ${poolCtl.indexOf(c)+1} 組倍率區間必須大於 0`;
+    totalP+=p; c.freq.innerHTML=oneIn(p);
+    c.seg.style.flex='0 0 '+(cfg.targetRtp>0?share/cfg.targetRtp*100:0)+'%';
+    if(share>0 && mean>0){
+      if(max>min){
+        ranges.push({p,min,max});
+      }else exact.push({mult:min,p});
+    }
+  });
+  if(totalP>1+1e-9) error=`各列反推命中機率合計 ${(totalP*100).toFixed(2)}%，請提高倍率或調整 RTP 分配`;
+  const lossP=Math.max(0,1-totalP); exact[0].p=lossP;
+  cfg.poolExact=exact; cfg.poolRange=ranges;
+  cfg.antePool=antePoolAtTarget(cfg.targetRtp);
+  const targetDiff=Math.abs(totalShare-(+cfg.targetRtp||0));
+  if(targetDiff>0.0015) error='RTP 佔比尚未補滿目標';
+  poolValid=!error;
+  $('.poolmeta b').textContent='合計 '+totalShare.toFixed(3)+'%';
+  $('#loss-freq').innerHTML=lossP>0
+    ? `<b>${(lossP*100).toFixed(3)}%</b> · ${oneIn(lossP)}`
+    : '<b>0%</b>';
+  $('#sump').textContent=totalShare.toFixed(3)+'%';
+  $('#ordrtp').textContent=fixedShare.toFixed(3)+'%';
+  $('#beastrtp').textContent=rangeShare.toFixed(3)+'%';
+  $('#tev').textContent=totalShare.toFixed(3)+'%';
+  $('#sumwarn').textContent=error?'⚠ '+error:'✓ RTP 已自動補完';
+  $('#sumwarn').className=error?'warnp':'ok'; $('#sump').className=error?'warnp':'';
+  if(error){ $('#status').textContent=error; $('#status').classList.remove('run'); }
+  $('#run').disabled=!poolValid;
+  updateSaveUI();
+}
+let ctrlId=0;
+function ctrlRow(host, label, sub, input){
+  const row=document.createElement('div'); row.className='row';
+  const l=document.createElement('label'); l.innerHTML=label+(sub?`<small>${sub}</small>`:'');
+  if(!input.id) input.id='tuner-ctl-'+(++ctrlId);
+  l.htmlFor=input.id;
+  row.appendChild(l); row.appendChild(input); host.appendChild(row);
+}
+const WEIGHT_COLORS=['#556B78','#008C99','#D08B13','#7656B2','#2F8A57','#C65D23','#3276B1','#8C6A3A'];
+const WEIGHT_TEXT=['#FFFFFF','#FFFFFF','#1B2733','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF'];
+function distributeWeightCents(rows,indices,totalCents){
+  if(!indices.length) return;
+  let active=indices.filter(i=>(+rows[i].weight||0)>0);
+  if(!active.length) active=indices.slice();
+  const oldSum=active.reduce((a,i)=>a+Math.max(0,+rows[i].weight||0),0);
+  indices.filter(i=>!active.includes(i)).forEach(i=>{ rows[i].weight=0; });
+  let assigned=0;
+  active.forEach((i,k)=>{
+    const cents=k===active.length-1 ? totalCents-assigned
+      : Math.floor(totalCents*(oldSum>0?Math.max(0,+rows[i].weight||0)/oldSum:1/active.length));
+    rows[i].weight=Math.max(0,cents)/100;
+    assigned+=Math.max(0,cents);
+  });
+}
+function rebalanceSideWeights(rows,selected,value,side){
+  const valueCents=Math.round(Math.max(0,Math.min(100,value))*100);
+  if(side==='right' && selected<rows.length-1){
+    const fixedLeft=rows.slice(0,selected).reduce((a,r)=>a+Math.round(Math.max(0,+r.weight||0)*100),0);
+    const available=Math.max(0,10000-fixedLeft);
+    const next=Math.min(available,valueCents);
+    rows[selected].weight=next/100;
+    distributeWeightCents(rows,rows.map((_,i)=>i).slice(selected+1),available-next);
+  }else if(side==='left' && selected>0){
+    const fixedRight=rows.slice(selected+1).reduce((a,r)=>a+Math.round(Math.max(0,+r.weight||0)*100),0);
+    const available=Math.max(0,10000-fixedRight);
+    const next=Math.min(available,valueCents);
+    rows[selected].weight=next/100;
+    distributeWeightCents(rows,rows.map((_,i)=>i).slice(0,selected),available-next);
+  }else return false;
+  return true;
+}
+function buildWeightEditor(host, rows, labelOf){
+  host.querySelectorAll('.weight-editor').forEach(e=>e.remove());
+  const editor=document.createElement('div'); editor.className='weight-editor';
+  const meta=document.createElement('div'); meta.className='weight-meta';
+  meta.innerHTML='<span>先選項目，再用同一條 BAR 調整</span><b></b>';
+  const control=buildAllocationControl(rows,labelOf,()=>markDirty(),total=>{
+    meta.querySelector('b').textContent='合計 '+total.toFixed(2)+'%';
+  });
+  editor.append(meta,control); host.appendChild(editor);
+}
+function buildAllocationControl(rows,labelOf,onChange,onPaint=()=>{}){
+  const wrap=document.createElement('div'); wrap.className='allocation-control';
+  const labels=document.createElement('div'); labels.className='allocation-labels';
+  const bar=document.createElement('div'); bar.className='allocation-bar';
+  const leftHandle=document.createElement('button'); leftHandle.type='button'; leftHandle.className='allocation-handle left';
+  const rightHandle=document.createElement('button'); rightHandle.type='button'; rightHandle.className='allocation-handle right';
+  const handles=[leftHandle,rightHandle];
+  handles.forEach(handle=>{
+    handle.setAttribute('role','slider'); handle.setAttribute('aria-valuemin','0'); handle.setAttribute('aria-valuemax','100');
+  });
+  let selected=Math.max(0,rows.findIndex(r=>(+r.weight||0)>0));
+  const focusSelectedHandle=()=>setTimeout(()=>(selected===rows.length-1?leftHandle:rightHandle).focus(),0);
+  const controls=rows.map((r,i)=>{
+    const color=WEIGHT_COLORS[i%WEIGHT_COLORS.length];
+    const textColor=WEIGHT_TEXT[i%WEIGHT_TEXT.length];
+    const button=document.createElement('button'); button.type='button'; button.className='allocation-label';
+    button.dataset.index=i;
+    button.style.setProperty('--choice',color);
+    const key=document.createElement('span'); key.className='allocation-key';
+    const swatch=document.createElement('span'); swatch.className='allocation-swatch';
+    const name=document.createElement('span'); name.textContent=labelOf(r,i);
+    const value=document.createElement('span'); value.className='allocation-value';
+    key.append(swatch,name); button.append(key,value); labels.appendChild(button);
+    const segment=document.createElement('div'); segment.className='allocation-segment';
+    segment.dataset.index=i; segment.style.background=color; segment.style.color=textColor;
+    const segmentText=document.createElement('span'); segment.appendChild(segmentText); bar.appendChild(segment);
+    if(textColor!=='#FFFFFF') segmentText.style.textShadow='none';
+    button.addEventListener('click',()=>{ selected=i; repaint(); focusSelectedHandle(); });
+    segment.addEventListener('click',()=>{ selected=i; repaint(); focusSelectedHandle(); });
+    return {button,value,color,segment,segmentText};
+  });
+  bar.append(leftHandle,rightHandle);
+  function setSelectedWeight(value,side){
+    if(!rebalanceSideWeights(rows,selected,value,side)) return;
+    repaint(); onChange();
+  }
+  function beginDrag(e,side){
+    e.preventDefault(); repaint();
+    const rect=bar.getBoundingClientRect();
+    const startX=e.clientX, startValue=Math.max(0,+rows[selected].weight||0);
+    const direction=side==='left'?-1:1;
+    const move=ev=>setSelectedWeight(startValue+(ev.clientX-startX)/Math.max(1,rect.width)*100*direction,side);
+    const up=()=>{ window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',up); };
+    window.addEventListener('pointermove',move); window.addEventListener('pointerup',up,{once:true});
+  }
+  [['left',leftHandle],['right',rightHandle]].forEach(([side,handle])=>{
+    handle.addEventListener('pointerdown',e=>beginDrag(e,side));
+    handle.addEventListener('keydown',e=>{
+      if(!['ArrowLeft','ArrowRight','ArrowDown','ArrowUp'].includes(e.key)) return;
+      e.preventDefault();
+      const delta=(e.key==='ArrowRight'||e.key==='ArrowUp')?0.5:-0.5;
+      setSelectedWeight((+rows[selected].weight||0)+delta,side);
+    });
+  });
+  function repaint(){
+    let total=0, leftBoundary=0;
+    controls.forEach((c,i)=>{
+      const value=Math.max(0,+rows[i].weight||0); total+=value;
+      c.value.textContent=value.toFixed(value%1?1:0)+'%';
+      c.button.classList.toggle('active',i===selected);
+      c.button.setAttribute('aria-pressed',i===selected?'true':'false');
+      c.button.setAttribute('aria-label',`${labelOf(rows[i],i)}，${value.toFixed(1)}%，選取後拖動色塊寬度`);
+      c.segment.classList.toggle('active',i===selected);
+      c.segment.style.flex='0 0 '+value+'%';
+      c.segmentText.textContent=value>=12?`${labelOf(rows[i],i)} ${value.toFixed(value%1?1:0)}%`:'';
+      if(i<selected) leftBoundary+=value;
+    });
+    const current=Math.max(0,+rows[selected].weight||0);
+    const active=controls[selected];
+    leftHandle.hidden=selected===0;
+    rightHandle.hidden=selected===rows.length-1;
+    leftHandle.style.left=leftBoundary+'%';
+    rightHandle.style.left=(leftBoundary+current)+'%';
+    handles.forEach((handle,i)=>{
+      const side=i===0?'左':'右';
+      handle.style.setProperty('--choice',active.color);
+      handle.setAttribute('aria-label',`${labelOf(rows[selected],selected)} ${side}側分界；只調整${side}側`);
+      handle.setAttribute('aria-valuenow',current.toFixed(2));
+      handle.setAttribute('aria-valuetext',current.toFixed(1)+'%');
+      handle.title=`拖動${side}界：${side}側比例重分配，另一側鎖定`;
+    });
+    onPaint(total);
+  }
+  wrap.append(labels,bar); repaint();
+  return wrap;
+}
+function buildDensityEditor(host, density, appearance){
+  host.querySelectorAll('.density-editor').forEach(e=>e.remove());
+  const editor=document.createElement('div'); editor.className='density-editor';
+  const note=document.createElement('div'); note.className='density-note';
+  note.textContent='四個階段各自設定；點色塊後可拖左／右界調整比例。';
+  editor.appendChild(note);
+  const bandRange={SHALLOWS:'0–50m · 3 段',REEF:'50–200m · 6 段',DEEPER:'200–500m · 9 段',ABYSS:'500m+ · 12 段'};
+  const bandMeta={
+    SHALLOWS:{no:'01',zh:'淺層'},REEF:{no:'02',zh:'礁區'},
+    DEEPER:{no:'03',zh:'深海'},ABYSS:{no:'04',zh:'深淵'},
+  };
+  const jump=document.createElement('nav'); jump.className='stage-jump'; jump.setAttribute('aria-label','四階段快速定位');
+  BANDS.forEach(band=>{
+    const a=document.createElement('a'); a.href='#band-'+band; a.className='band-'+band.toLowerCase();
+    a.innerHTML=`<span class="stage-index">${bandMeta[band].no}</span><span><b>${band}</b><small>${bandMeta[band].zh} · ${bandRange[band]}</small></span>`;
+    jump.appendChild(a);
+  });
+  editor.appendChild(jump);
+  const bands=document.createElement('div'); bands.className='density-bands';
+  const countMeta={
+    fish:{label:'魚／段',hint:'0／1／2／3 個權重'},
+    bubble:{label:'泡泡／段',hint:'0／1／2／3 個權重'},
+    scatter:{label:'金魚／段',hint:'0／1／2／3 個權重'},
+  };
+  const fishMean=rows=>rows.reduce((a,r)=>a+(+r.mult||0)*Math.max(0,+r.weight||0)/100,0);
+  const bubbleMean=rows=>rows.reduce((a,r)=>{
+    const min=Math.max(0.01,+r.min||0.01), max=Math.max(min,+r.max||min);
+    const mean=max===min?min:(max-min)/Math.log(max/min);
+    return a+mean*Math.max(0,+r.weight||0)/100;
+  },0);
+  const makeRow=(label,hint,control)=>{
+    const line=document.createElement('div'); line.className='density-row';
+    const rowHead=document.createElement('div'); rowHead.className='density-row-h';
+    const text=document.createElement('label'); text.innerHTML=`${label}<small>${hint}</small>`;
+    const ev=document.createElement('span'); ev.className='density-ev';
+    rowHead.append(text,ev); line.append(rowHead);
+    const built=control(ev); built.setAttribute('aria-label',label);
+    line.appendChild(built);
+    return line;
+  };
+  BANDS.forEach(band=>{
+    const stage=document.createElement('section');
+    stage.className='density-band band-'+band.toLowerCase(); stage.id='band-'+band;
+    const head=document.createElement('div'); head.className='density-band-head';
+    head.innerHTML=`<span class="stage-index">${bandMeta[band].no}</span><span class="density-band-title"><b>${band}</b><small>${bandMeta[band].zh} · ${bandRange[band]}</small></span>`;
+    stage.appendChild(head);
+    const countSection=document.createElement('div'); countSection.className='density-section'; countSection.textContent='A · 每段數量';
+    stage.appendChild(countSection);
+    ['fish','bubble','scatter'].forEach(family=>{
+      const meta=countMeta[family];
+      stage.appendChild(makeRow(meta.label,meta.hint,ev=>{
+      const rows=density[band][family];
+      const control=buildAllocationControl(rows,(r,i)=>`${i} 個`,()=>markDirty(),()=>{
+        const expected=rows.reduce((a,r,i)=>a+i*Math.max(0,+r.weight||0)/100,0);
+        ev.textContent='E '+expected.toFixed(2);
+      });
+      control.setAttribute('data-density',`${band}-${family}`);
+      return control;
+      }));
+    });
+    const multiplierSection=document.createElement('div'); multiplierSection.className='density-section'; multiplierSection.textContent='B · 倍率權重';
+    stage.appendChild(multiplierSection);
+    const addAppearanceRow=(family,label,hint,labelOf,meanOf)=>{
+      const line=makeRow(label,hint,ev=>{
+        const rows=appearance[band][family];
+        const control=buildAllocationControl(rows,labelOf,()=>markDirty(),()=>{
+          ev.textContent='平均 ×'+meanOf(rows).toFixed(2);
+        });
+        control.setAttribute('data-appearance',`${band}-${family}`);
+        return control;
+      });
+      line.classList.add('appearance-row'); stage.appendChild(line);
+    };
+    addAppearanceRow('fish','魚倍率','×0.2／0.5／1／1.5／2／3／5',r=>'×'+r.mult,fishMean);
+    addAppearanceRow('bubble','泡泡倍率','×2–4 至 ×50–100',r=>'×'+r.min+'–'+r.max,bubbleMean);
+    bands.appendChild(stage);
+  });
+  editor.appendChild(bands);
+  host.appendChild(editor);
+}
+function buildParams(){
+  const gb=$('#grpBeast'); gb.querySelectorAll('.row').forEach(e=>e.remove());
+  gb.querySelectorAll('.beast-rule-note,.beast-rule-grid').forEach(e=>e.remove());
+  const note=document.createElement('div'); note.className='beast-rule-note';
+  note.textContent='按水池預算由高到低判定；倍率機率抽中就完整給獎並完成演出，這條保證路徑永遠不斷鉤。';
+  const grid=document.createElement('div'); grid.className='beast-rule-grid';
+  grid.innerHTML='<span class="bh">表演階層</span><span class="bh">門檻 ×</span><span class="bh">機率 %</span>';
+  const beastNames=['GREAT WHITE','MOSASAUR','LIVYATAN'];
+  [2,1,0].forEach(tier=>{
+    const rule=cfg.beastShowRules.find(r=>(+r.tier||0)===tier) || cfg.beastShowRules[tier];
+    const name=document.createElement('span'); name.className='beast-rule-name'; name.textContent=beastNames[tier];
+    const threshold=mkNum(rule.min,0.5); threshold.min=0.5;
+    threshold.setAttribute('aria-label',`${beastNames[tier]} 水池倍率門檻`);
+    threshold.addEventListener('input',()=>{
+      const raw=+threshold.value;
+      rule.min=Math.max(0.5,Number.isFinite(raw)?raw:0.5);
+      if(raw!==rule.min) threshold.value=rule.min;
+      markDirty();
+    });
+    const chance=mkNum(Math.round((+rule.p||0)*100),1); chance.min=0; chance.max=100;
+    chance.setAttribute('aria-label',`${beastNames[tier]} 表演機率`);
+    chance.addEventListener('input',()=>{
+      const raw=+chance.value;
+      const pct=Math.max(0,Math.min(100,Number.isFinite(raw)?raw:0));
+      rule.p=pct/100;
+      if(raw!==pct) chance.value=pct;
+      markDirty();
+    });
+    grid.append(name,threshold,chance);
+  });
+  gb.append(note,grid);
+
+  const gPull=$('#grpPullBeast'); gPull.querySelectorAll('.row,.beast-rule-note').forEach(e=>e.remove());
+  const pullNote=document.createElement('div'); pullNote.className='beast-rule-note';
+  pullNote.textContent='只在本次不是強制巨獸表演時抽；倍率保證路徑已選中任何巨獸，就整組跳過。進入後先依本次 PULL 是否鉤到金魚選預告率，再逐段抽大白鯊與蒼龍；預算低於該獸門檻時只播放斷鉤，不改寫封存獎金。';
+  gPull.appendChild(pullNote);
+  const addPullPct=(key,label,desc,aria)=>{
+    const input=mkNum(Math.round((+cfg[key]||0)*1000)/10,0.5); input.min=0; input.max=100;
+    input.setAttribute('aria-label',aria);
+    input.addEventListener('input',()=>{
+      const raw=+input.value;
+      const pct=Math.max(0,Math.min(100,Number.isFinite(raw)?raw:0));
+      cfg[key]=pct/100;
+      if(raw!==pct) input.value=pct;
+      markDirty();
+    });
+    ctrlRow(gPull,label,desc,input);
+  };
+  addPullPct('goldFishTeaseP','金魚→大白鯊預告 %','本次有鉤到至少一隻金魚時才抽','有鉤到金魚時的大白鯊預告機率');
+  addPullPct('noGoldFishTeaseP','無金魚→大白鯊預告 %','本次沒有鉤到金魚時才抽','沒有鉤到金魚時的大白鯊預告機率');
+  addPullPct('teaseToGreatWhiteP','大白鯊預告→大白鯊 %','預告成立後抽真正咬鉤；預算不足則斷鉤','大白鯊預告升級為大白鯊的機率');
+  addPullPct('greatWhiteToMosasaurP','大白鯊→蒼龍 %','大白鯊成立後抽蒼龍升級；預算不足則斷鉤','大白鯊升級為蒼龍的機率');
+
+  const gs=$('#grpShark'); gs.querySelectorAll('.row,.shark-rate-note').forEach(e=>e.remove());
+  const sharkRateNote=document.createElement('div'); sharkRateNote.className='shark-rate-note';
+  const updateSharkRate=()=>{
+    const per=Math.max(0,Math.min(1,(+cfg.sharkSpawnP||0)*(+cfg.sharkBiteP||0)));
+    const full=1-Math.pow(1-per,LAYERS);
+    sharkRateNote.innerHTML=`目前每段斷線 <b>${(per*100).toFixed(2)}%</b> · 若走滿 ${LAYERS} 段，至少一次約 <b>${(full*100).toFixed(1)}%</b>`;
+  };
+  const sharkSpawn=mkNum(Math.round((+cfg.sharkSpawnP||0)*1000)/10,0.5); sharkSpawn.min=0; sharkSpawn.max=100;
+  sharkSpawn.addEventListener('input',()=>{
+    const pct=Math.max(0,Math.min(100,Number.isFinite(+sharkSpawn.value)?+sharkSpawn.value:0));
+    cfg.sharkSpawnP=pct/100; if(+sharkSpawn.value!==pct) sharkSpawn.value=pct; updateSharkRate(); markDirty();
+  });
+  ctrlRow(gs,'出現機率 %','每段獨立判定；預設 12.5%（1/8）',sharkSpawn);
+  const sharkBite=mkNum(Math.round((+cfg.sharkBiteP||0)*1000)/10,0.5); sharkBite.min=0; sharkBite.max=100;
+  sharkBite.addEventListener('input',()=>{
+    const pct=Math.max(0,Math.min(100,Number.isFinite(+sharkBite.value)?+sharkBite.value:0));
+    cfg.sharkBiteP=pct/100; if(+sharkBite.value!==pct) sharkBite.value=pct; updateSharkRate(); markDirty();
+  });
+  ctrlRow(gs,'咬斷表演率 %','不讀水池正負；鯊魚出現後預設 20%',sharkBite);
+  updateSharkRate(); gs.appendChild(sharkRateNote);
+  const prizeMin=mkNum(cfg.sharkPrizeMin,0.5); prizeMin.min=0.1;
+  const prizeMax=mkNum(cfg.sharkPrizeMax,0.5); prizeMax.min=0.1;
+  prizeMin.addEventListener('input',()=>{
+    const raw=+prizeMin.value;
+    cfg.sharkPrizeMin=Math.max(0.1,Number.isFinite(raw)?raw:0.1);
+    if(cfg.sharkPrizeMin>cfg.sharkPrizeMax){
+      cfg.sharkPrizeMax=cfg.sharkPrizeMin; prizeMax.value=cfg.sharkPrizeMax;
+    }
+    if(raw!==cfg.sharkPrizeMin) prizeMin.value=cfg.sharkPrizeMin;
+    markDirty();
+  });
+  prizeMax.addEventListener('input',()=>{
+    const raw=+prizeMax.value;
+    cfg.sharkPrizeMax=Math.max(cfg.sharkPrizeMin,Number.isFinite(raw)?raw:cfg.sharkPrizeMin);
+    if(raw!==cfg.sharkPrizeMax) prizeMax.value=cfg.sharkPrizeMax;
+    markDirty();
+  });
+  ctrlRow(gs,'獎品倍率 最小 ×','鯊魚沒咬斷時，轉成獎品魚的倍率下限（預設 ×3）',prizeMin);
+  ctrlRow(gs,'獎品倍率 最大 ×','同一支 value roll 在最小～最大間抽樣（預設 ×10）',prizeMax);
+  const ga=$('#grpAnte'); ga.querySelectorAll('.row').forEach(e=>e.remove());
+  ctrlRow(ga,'加注額','×原注／段 (預設 0.25)', numInput(cfg.anteAmt,0.05,v=>cfg.anteAmt=v));
+  const fromSel=document.createElement('select'); fromSel.className='mini';
+  BANDS.forEach(b=>{ const o=document.createElement('option'); o.value=b; o.textContent=b; if(b===cfg.anteFrom)o.selected=true; fromSel.appendChild(o); });
+  fromSel.addEventListener('change',()=>{ cfg.anteFrom=fromSel.value; markDirty(); });
+  ctrlRow(ga,'起始帶','哪一帶開始加注 (預設 REEF)', fromSel);
+  const gp=$('#grpSpawn'); gp.querySelectorAll('.row,.density-editor').forEach(e=>e.remove());
+  buildDensityEditor(gp,cfg.spawnDensity,cfg.appearanceByBand);
+}
+function markDirty(){
+  unsaved=true; draftChanged=true; updateSaveUI();
+  setResultsPending('等待重新模擬');
+  if(poolValid) $('#status').textContent='參數已改，按「跑模擬」';
+  $('#status').classList.remove('run');
+}
+function updateSaveUI(){
+  const state=$('#saveState'), actions=$('#draftActions');
+  if(!state||!actions) return;
+  const d=new Date(savedAt);
+  const when=savedAt&&Number.isFinite(d.getTime())
+    ? d.toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+    : '—';
+  state.textContent='最後設定 '+when;
+  actions.classList.toggle('on',draftChanged);
+  actions.setAttribute('aria-hidden',draftChanged?'false':'true');
+  $('#saveDraft').disabled=!poolValid;
+  $('#revertDraft').textContent=savedRecord?'恢復已保存':'恢復預設';
+}
+function saveConfig(){
+  repaintPool();
+  if(!poolValid) return;
+  const record={schema:1,savedAt:new Date().toISOString(),cfg:structuredClone(cfg)};
+  try{
+    localStorage.setItem(SAVED_CFG_KEY,JSON.stringify(record));
+    try{ savedCfgChannel?.postMessage({type:'saved',savedAt:record.savedAt}); }catch{}
+    savedRecord=record; savedAt=record.savedAt; unsaved=false; draftChanged=false; updateSaveUI();
+    $('#status').textContent='參數已保存 · 已通知遊戲'; $('#status').classList.remove('run');
+  }catch{
+    $('#status').textContent='保存失敗：瀏覽器儲存空間不可用'; $('#status').classList.remove('run');
+  }
+}
+function revertDraft(){
+  cfg=savedRecord?mergeSavedCfg(DEFAULTS,savedRecord.cfg):structuredClone(DEFAULTS);
+  savedAt=savedRecord?.savedAt||null;
+  unsaved=!savedRecord; draftChanged=false;
+  buildPoolTable(); buildParams(); updateSaveUI();
+  $('#status').textContent=savedRecord?'已恢復最後保存參數':'已恢復程式預設';
+  $('#status').classList.remove('run');
+}
+
+/* ---------- run (Web Worker + live progress, sync fallback) ---------- */
+let worker=null, workerBroken=false;
+function ensureWorker(){
+  if(worker || workerBroken) return worker;
+  try{ worker = new Worker(new URL('./src/engine/sim-worker.js', import.meta.url), {type:'module'}); }
+  catch(e){ workerBroken=true; worker=null; }
+  return worker;
+}
+function setProgress(frac){
+  $('#prog').classList.add('on');
+  $('#progbar').style.width = Math.round(frac*100)+'%';
+  $('#status').textContent = '模擬中… '+Math.round(frac*100)+'%';
+  setRunButton('running',frac);
+}
+function setRunButton(state='idle',frac=0){
+  const button=$('#run');
+  if(!button) return;
+  button.classList.toggle('running',state==='running');
+  if(state==='running'){
+    button.textContent='模擬中… '+Math.round(frac*100)+'%';
+    button.disabled=true;
+    button.removeAttribute('title');
+  }else if(state==='error'){
+    button.textContent='重試模擬 ▸';
+    button.disabled=!poolValid;
+    button.title='上次模擬失敗，按下重新執行';
+  }else{
+    button.textContent='跑模擬 ▸';
+    button.disabled=!poolValid;
+    button.removeAttribute('title');
+  }
+}
+function clearProgress(){ setTimeout(()=>{ $('#prog').classList.remove('on'); $('#progbar').style.width='0%'; }, 420); }
+function renderResultSkeleton(label='尚未模擬'){
+  const col=$('#resultsCol'); col.classList.add('results-pending'); col.setAttribute('aria-busy','true');
+  $('#dashmeta').textContent=label;
+  const cv=$('#ceilVal'); cv.textContent='00.0%'; cv.className='v masked-number';
+  $('#ceilL').textContent='(固定停 L00)'; $('#ceilL').className='masked-text';
+  const cp=$('#ceilPill'); cp.textContent='等待模擬資料'; cp.className='pill pending';
+  [['#kHuman','00.0%'],['#kWin','00.0%'],['#kCut','0.00%'],['#kAnte','00.0']].forEach(([sel,text])=>{
+    const el=$(sel); el.textContent=text; el.className='val masked-number';
+  });
+  const W=640,H=210,padL=34,padB=22,padT=10,x0=padL,x1=W-8,y0=H-padB,y1=padT;
+  let g='';
+  [0,.5,1].forEach(v=>{ const y=y0-(y0-y1)*v/1.08;
+    g+=`<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="#dbe1e8" stroke-width="1"/>`;
+    g+=`<text x="${x0-6}" y="${y+3}" text-anchor="end" font-size="9">${v*100}</text>`;
+  });
+  const count=18,bw=(x1-x0)/count*.62;
+  for(let i=0;i<count;i++){
+    const x=x0+(x1-x0)*(i+.5)/count-bw/2;
+    const h=34+((i*17)%78);
+    g+=`<rect x="${x}" y="${y0-h}" width="${bw}" height="${h}" rx="2" fill="#dfe5ea"/>`;
+  }
+  g+=`<text x="${x0}" y="${y1+2}" font-size="9" fill="#95a2ad">RTP %</text>`;
+  $('#chart').innerHTML=g;
+  const tb=$('#freq tbody'); tb.innerHTML='';
+  ['GREAT WHITE','MOSASAUR','LIVYATAN'].forEach(name=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="beastname">${name}</td><td><span class="skeleton-line short"></span></td><td><span class="skeleton-line"></span></td><td><span class="skeleton-line short"></span></td><td><span class="skeleton-line short"></span></td><td><span class="skeleton-line short"></span></td>`;
+    tb.appendChild(tr);
+  });
+}
+function setResultsPending(label){
+  const col=$('#resultsCol');
+  if(col.classList.contains('results-pending') && $('#dashmeta').textContent===label) return;
+  renderResultSkeleton(label);
+}
+function finish(s, rounds){
+  render(s); $('#resultsCol').classList.remove('results-pending'); $('#resultsCol').setAttribute('aria-busy','false');
+  setRunButton('idle');
+  $('#progbar').style.width='100%';          // top the bar off WITHOUT touching the status text
+  $('#status').textContent='完成 · '+rounds.toLocaleString()+'×'+s.rtpByDepth.length; $('#status').classList.remove('run');
+  clearProgress();
+}
+function fail(msg){
+  setResultsPending('模擬失敗');
+  $('#status').textContent='錯誤: '+msg; $('#status').classList.remove('run'); setRunButton('error'); clearProgress();
+}
+function run(){
+  repaintPool();
+  if(!poolValid) return;
+  setResultsPending('模擬中');
+  $('#status').classList.add('run');
+  setRunButton('running',0);
+  setProgress(0.02);
+  const rounds=+$('#rounds').value;
+  const {targetRtp,poolRows,...engineCfg}=cfg;
+  const cfgSnap=structuredClone(engineCfg);
+  const w=ensureWorker();
+  if(w){
+    w.onmessage=(e)=>{ const d=e.data;
+      if(d.type==='progress') setProgress(Math.max(0.02, d.frac));
+      else if(d.type==='done') finish(d.result, rounds);
+      else if(d.type==='error') fail(d.message);
+    };
+    w.onerror=()=>{ workerBroken=true; worker=null; runSync(cfgSnap, rounds); };  // fall back if the worker dies
+    w.postMessage({cfg:cfgSnap, opts:{rounds}});
+  } else runSync(cfgSnap, rounds);
+}
+function runSync(cfgSnap, rounds){          // no worker → main-thread (briefly blocks; bar can't tick live)
+  setTimeout(()=>{
+    let s; try{ s=simSummary(cfgSnap, {rounds, onProgress:setProgress}); }
+    catch(e){ return fail(e.message); }
+    finish(s, rounds);
+  }, 30);
+}
+function pct(x){ return (x*100).toFixed(1)+'%'; }
+function render(s){
+  $('#dashmeta').textContent = s.rounds.toLocaleString()+' rounds';
+  // ceiling
+  const cv=$('#ceilVal'); cv.textContent=pct(s.ceiling.rtp); cv.className='v'+(s.ceilingSafe?'':' bad');
+  $('#ceilL').textContent='(固定停 L'+s.ceiling.L+')'; $('#ceilL').className='';
+  const cp=$('#ceilPill'); cp.textContent=s.ceilingSafe?'✓ <100% 不可套利':'✗ ≥100% 可套利'; cp.className='pill '+(s.ceilingSafe?'good':'bad');
+  const kh=$('#kHuman'); kh.className='val'; kh.innerHTML=pct(s.humanBest)+' <small>≥'+s.humanTh+'×</small>';
+  const kw=$('#kWin'); kw.className='val'; kw.textContent=pct(s.winRate);
+  const kc=$('#kCut'); kc.className='val'; kc.innerHTML=(s.cutPerSegment*100).toFixed(2)+'% <small>/段</small>';
+  const ka=$('#kAnte'); ka.className='val'; ka.textContent=s.antesPerRound.toFixed(1);
+  drawChart(s.rtpByDepth, s.refL);
+  // presentation frequency table — measured from settled results, never a draw row
+  const tb=$('#freq tbody'); tb.innerHTML='';
+  s.beast.forEach((b,i)=>{
+    const one=b.appearOneIn?Math.round(b.appearOneIn):0;
+    const broken=b.lineBreakOneIn?Math.round(b.lineBreakOneIn):0;
+    const tr=document.createElement('tr');
+    const tease=i===0 && s.greatWhiteTeaseOneIn ? '每 '+Math.round(s.greatWhiteTeaseOneIn)+' 局' : '—';
+    const conversion=i===0 && s.greatWhiteTeaseOneIn
+      ? '預告→大白鯊 '+pct(s.greatWhiteTeaseToBite)
+      : i===1 && s.greatWhiteTeaseToBite
+        ? '大白鯊→蒼龍 '+pct(s.greatWhiteToMosasaur)
+        : '—';
+    tr.innerHTML=`<td class="beastname">${b.name}</td>`
+      +`<td>×${b.min.toFixed(1)}+ · ${(b.p*100).toFixed(0)}%</td>`
+      +`<td class="${one?'ok':'miss'}">${one?('每 '+one+' 局'):'樣本內未出現'}</td>`
+      +`<td class="${one?'ok':''}">${one?('×'+b.avgAwardMult.toFixed(2)):'—'}</td>`
+      +`<td class="${broken?'off':''}">${broken?('每 '+broken+' 局 · '+pct(b.lineBreakRate)):'—'}</td>`
+      +`<td class="${i===0&&s.greatWhiteTeaseOneIn?'ok':''}">${tease}</td>`
+      +`<td class="${conversion!=='—'?'ok':''}">${conversion}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function drawChart(rows, refL){
+  const W=640,H=210, padL=34,padB=22,padT=10, x0=padL, x1=W-8, y0=H-padB, y1=padT;
+  const maxV=Math.max(1.05, ...rows.map(r=>r.rtp))*1.02;
+  const sx=i=>x0+(x1-x0)*(i+0.5)/rows.length;
+  const sy=v=>y0-(y0-y1)*(v/maxV);
+  const bw=(x1-x0)/rows.length*0.62;
+  let g='';
+  // gridlines at 0,50,100 (light theme: pale grid, red 100% ceiling)
+  [0,0.5,1].forEach(v=>{ const y=sy(v); const cut=v===1;
+    g+=`<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="${cut?'#d13b3b':'#dbe1e8'}" stroke-width="1" ${cut?'stroke-dasharray="4 4"':''}/>`;
+    g+=`<text x="${x0-6}" y="${y+3}" text-anchor="end" font-size="9">${v*100}</text>`; });
+  rows.forEach((r,i)=>{
+    const x=sx(i)-bw/2; const yTot=sy(r.rtp), yBase=sy(r.base);
+    const isPeak=Math.abs(r.rtp-Math.max(...rows.map(q=>q.rtp)))<1e-9;
+    // whale segment (top, teal) then base (gold); peak bar is a brighter gold + rim
+    g+=`<rect x="${x}" y="${yTot}" width="${bw}" height="${yBase-yTot}" fill="#2f8a97"/>`;
+    g+=`<rect x="${x}" y="${yBase}" width="${bw}" height="${y0-yBase}" fill="${isPeak?'#e0a52a':'#c0871a'}"/>`;
+    if(isPeak) g+=`<rect x="${x}" y="${yTot}" width="${bw}" height="${y0-yTot}" fill="none" stroke="#8a5210" stroke-width="1.4"/>`;
+    g+=`<text x="${sx(i)}" y="${y0+13}" text-anchor="middle" font-size="9" ${r.L===refL?'fill="#a9750f" font-weight="700"':''}>${r.L}</text>`;
+  });
+  g+=`<text x="${x0}" y="${y1+2}" font-size="9" fill="#95a2ad">RTP %</text>`;
+  $('#chart').innerHTML=g;
+}
+
+$('#run').addEventListener('click', run);
+$('#saveDraft').addEventListener('click', saveConfig);
+$('#revertDraft').addEventListener('click', revertDraft);
+$('#rounds').addEventListener('change',()=>{
+  $('#status').textContent='模擬局數已改，參數未變'; $('#status').classList.remove('run');
+});
+$('#reset').addEventListener('click', ()=>{ cfg=structuredClone(DEFAULTS); buildPoolTable(); buildParams(); markDirty(); });
+
+buildPoolTable(); buildParams(); updateSaveUI();
+$('#status').textContent=savedRecord?'已載入保存參數':'就緒 · 使用程式預設';
+renderResultSkeleton();
+// Do not auto-run RTP and never auto-save. Only the operator can commit parameters.
+</script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DEEPER v2 — physics preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Hanken+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --abyss-0:#04070A; --cyan:#6FE3E1; --cyan-deep:#2C9FB2; --reef:#5A8F86;
+    --petrol-violet:#8A5CC2; --gold-sh:#6E4A12; --gold-base:#C8922E; --gold-mid:#F6C243; --gold-hi:#FBE7A8;
+    --bone:#E9F2F0; --ash:#7E9596; --dock-edge:#13202a;
+    --font-display:'Big Shoulders Display',Impact,sans-serif; --font-ui:'Hanken Grotesk',system-ui,sans-serif;
+    --gold-grad:linear-gradient(135deg,var(--gold-hi),var(--gold-mid) 38%,var(--gold-base) 62%,var(--gold-sh));
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0}
+  html,body{height:100%; background:var(--abyss-0); overflow:hidden; font-family:var(--font-ui); color:var(--bone);
+    touch-action:manipulation}
+  body{display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(120% 90% at 50% 42%, rgba(13,53,64,.18), rgba(4,7,10,0) 55%), linear-gradient(180deg,#071118,#04070A 40%,#050409)}
+  #stage{position:relative; width:100vw; height:100vh; max-width:calc(100vh*0.5625); background:var(--abyss-0); overflow:hidden;
+    box-shadow:0 0 0 1px rgba(19,32,42,.9), 0 0 80px rgba(0,0,0,.55)}
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none}
+  #boot,.bal,#betTile,.btn{touch-action:manipulation}
+
+  /* v2.2 — the top bar carries ONE thing: what you have. The version badge and
+     the sfx chip were dev chrome sitting where the player's eye lands. */
+  #top{position:absolute; top:0; left:0; right:0; z-index:20; display:flex; align-items:center; justify-content:center;
+    padding:env(safe-area-inset-top,10px) 14px 8px; background:linear-gradient(180deg,rgba(5,8,10,.85),rgba(5,8,10,0))}
+  .bal{display:flex; flex-direction:column; align-items:center; line-height:1; cursor:pointer; position:relative}
+  .bal .lab{font-size:9px; letter-spacing:.14em; color:var(--ash); text-transform:uppercase; font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:6px}
+  /* the wallet chip: tap to switch 1:1 cash ⇄ 1:100 points (display only) */
+  .bal .lab b{font-size:8px; letter-spacing:.12em; font-weight:800; color:var(--gold-mid);
+    border:1px solid rgba(200,146,46,.45); border-radius:2px; padding:2px 4px 1px; background:rgba(110,74,18,.28)}
+  .bal .lab b::after{content:' ⇄'; opacity:.75}
+  .bal:active .lab b{background:rgba(246,194,67,.3); color:var(--gold-hi)}
+  .bal .val{font-family:var(--font-display); font-size:23px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--gold-mid); margin-top:2px; display:inline-block}
+  .bal .val.charged{animation:costPulse .4s ease}
+  @keyframes costPulse{0%{transform:translateX(-2px) scale(1.16); color:var(--gold-hi)}30%{transform:translateX(2px) scale(1.05)}60%{transform:translateX(-1px) scale(.98)}100%{transform:translateX(0) scale(1); color:var(--gold-mid)}}
+  /* ~~.bal .ante~~ (v2.3, retired in v2.3b) — a gold "ANTE ×1" rose off the
+     wallet on every charge, back when the charge was 1-in-3 and needed
+     explaining. Once every segment antes it became 27 identical flourishes per
+     dive, so the balance's own gold pulse carries it alone now. */
+
+  #dock{position:absolute; left:0; right:0; bottom:0; z-index:20; padding:14px 14px calc(env(safe-area-inset-bottom,10px) + 14px);
+    background:linear-gradient(180deg,rgba(7,11,14,0),rgba(7,11,14,.92) 22%,#04070a); border-top:1px solid var(--dock-edge)}
+  .readouts{display:flex; justify-content:center; align-items:center; gap:16px; margin-bottom:12px}
+  .ro{display:flex; flex-direction:column; align-items:center; line-height:1; text-align:center}
+  .ro .lab{font-size:9px; letter-spacing:.16em; color:var(--ash); text-transform:uppercase; font-weight:600; margin-bottom:4px}
+  .ro .num{font-family:var(--font-display); font-weight:900; font-variant-numeric:tabular-nums; line-height:.85}
+  .ro.score .num{font-size:30px; color:var(--cyan)}
+  .ro.mult .num{font-size:30px; color:var(--gold-mid)}
+  .ro.pot{text-align:center}
+  .ro.pot .lab{color:var(--gold-hi)}
+  /* v2.1 — IDLE-only bet switcher (the one button-like surface) */
+  #betTile{cursor:pointer; user-select:none; padding:4px 10px 5px; border:1px solid rgba(44,159,178,.45);
+    border-radius:4px; background:rgba(14,46,51,.35); transition:opacity .25s, border-color .25s}
+  #betTile .num{font-size:22px; color:var(--cyan)}
+  #betTile .lab::after{content:' ◂▸'; letter-spacing:0; opacity:.7}
+  #betTile.locked{opacity:.38; border-color:rgba(126,149,150,.25); pointer-events:none}
+  #betTile.locked .lab::after{content:''}
+  .ro.pot .num{font-size:46px; color:var(--gold-hi); text-shadow:0 2px 0 rgba(0,0,0,.5); height:46px; overflow:hidden}
+  .op{font-family:var(--font-display); font-weight:800; font-size:20px; color:var(--ash); align-self:flex-end; padding-bottom:7px}
+  /* rolling odometer — each digit is a reel that scrolls vertically to its value */
+  .ro.pot .num .roll{display:inline-flex; align-items:flex-start; line-height:1; font-variant-numeric:tabular-nums}
+  .ro.pot .num .roll .sym{display:inline-block; height:1em; line-height:1em}
+  .ro.pot .num .roll .sym.x{opacity:.85; margin:0 1px}
+  .ro.pot .num .roll .reel{display:inline-block; height:1em; line-height:1em; overflow:hidden; vertical-align:top}
+  .ro.pot .num .roll .reel .col{display:flex; flex-direction:column; transition:transform .42s cubic-bezier(.2,.8,.2,1)}
+  .ro.pot .num .roll .reel .col span{display:block; height:1em; line-height:1em; text-align:center}
+
+  .acts{display:flex; gap:10px; align-items:stretch}
+  .btn{flex:1; border:none; border-radius:5px; padding:18px 0 15px; font-size:15px; font-weight:800; font-family:var(--font-display);
+    letter-spacing:.10em; text-transform:uppercase; position:relative; overflow:hidden; color:var(--abyss-0);
+    text-shadow:0 -1px 0 rgba(0,0,0,.4); transition:transform .08s, opacity .2s, filter .2s}
+  .btn:active{transform:translateY(1px) scale(.99)} .btn:disabled{opacity:.32; filter:grayscale(.5)}
+  .btn .cost{display:block; font-family:var(--font-ui); font-size:10px; font-weight:600; letter-spacing:.04em; margin-top:3px; opacity:.78; text-transform:none}
+  .btn-drop{background:linear-gradient(180deg,#13474f,#0c2b30); color:var(--cyan); box-shadow:inset 0 1px 0 rgba(111,227,225,.3); flex:1.6}
+  .btn-sink{background:linear-gradient(180deg,#15565d,#0c2b30); color:#bdeef3; box-shadow:inset 0 1px 0 rgba(111,227,225,.28); flex:1}
+  .btn-pull{flex:1.6; color:#3a2a05; letter-spacing:.13em; background:var(--gold-grad);
+    text-shadow:0 1px 0 rgba(251,231,168,.5),0 -1px 0 rgba(58,42,5,.4); box-shadow:inset 0 1px 0 var(--gold-hi), inset 0 -3px 7px rgba(110,74,18,.55)}
+
+  /* animated boot (ported from v1): strand drops → cold gem lure pops → DEEPER
+     stamps in → subtitle/tag fade up → temperature axis sweeps cyan→gold */
+  #boot{position:absolute; inset:0; z-index:100; overflow:hidden;
+    /* v2.6.6 (hao: 啟動開始時海水不該突然變色) — previews the REAL dive water
+       (band-strata SHALLOWS→ABYSS), so boot → idle → dive is one continuous colour.
+       Keep in sync with the ambient backdrop in render-v2.js. */
+    background:
+      radial-gradient(140% 66% at 50% -8%, rgba(150,200,222,.26), rgba(150,200,222,0) 56%),
+      linear-gradient(180deg,#0F4D5C 0%,#0C3A47 50%,#0A2A36 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:opacity .55s ease; cursor:pointer}
+  #boot.gone{opacity:0; pointer-events:none}
+  #boot .strand{position:absolute; top:0; left:50%; width:1px; height:38%;
+    background:linear-gradient(180deg,rgba(233,242,240,0),rgba(233,242,240,.55) 35%,rgba(233,242,240,.85));
+    transform:translateX(-50%) scaleY(0); transform-origin:top;
+    animation:strandDrop .62s cubic-bezier(.4,0,.15,1) .1s forwards}
+  @keyframes strandDrop{to{transform:translateX(-50%) scaleY(1)}}
+  #boot .lure{position:absolute; top:38%; left:50%; width:11px; height:11px;
+    transform:translate(-50%,-50%) rotate(45deg) scale(0);
+    background:linear-gradient(135deg,var(--cyan),var(--cyan-deep));
+    box-shadow:0 0 0 1px rgba(44,159,178,.5), 0 1px 0 rgba(251,231,168,.4) inset;
+    animation:lurePop .4s cubic-bezier(.34,1.56,.64,1) .62s forwards}
+  @keyframes lurePop{to{transform:translate(-50%,-50%) rotate(45deg) scale(1)}}
+  #boot .wm{margin-top:7%; font-family:var(--font-display); font-size:74px; font-weight:900;
+    letter-spacing:.02em; line-height:1; color:var(--gold-mid);
+    -webkit-text-stroke:2px var(--gold-sh); text-shadow:0 -1px 0 var(--gold-hi); paint-order:stroke fill;
+    opacity:0; transform:scale(1.06); animation:wmStamp .34s cubic-bezier(.2,.8,.2,1) .9s forwards}
+  @keyframes wmStamp{0%{opacity:0; transform:scale(1.06)}60%{opacity:1; transform:scale(.985)}100%{opacity:1; transform:scale(1)}}
+  #boot .subt{margin-top:16px; font-family:var(--font-display); font-size:13px; letter-spacing:.26em; font-weight:800;
+    text-transform:uppercase; color:var(--ash); opacity:0; animation:bootFade .5s ease 1.2s forwards}
+  #boot .tag{margin-top:10px; font-size:12px; color:var(--bone); opacity:0; letter-spacing:.02em;
+    animation:bootFade .6s ease 1.42s forwards}
+  @keyframes bootFade{from{opacity:0; transform:translateY(4px)}to{opacity:.66; transform:none}}
+  #boot .axis{position:relative; margin-top:30px; width:180px; height:2px;
+    background:rgba(155,152,143,.14); border-radius:2px; overflow:hidden}
+  #boot .axis::after{content:''; position:absolute; inset:0; transform:translateX(-100%);
+    background:linear-gradient(90deg,#2BBECB,#F6C243); animation:axisSweep 1.5s cubic-bezier(.4,0,.2,1) .35s forwards}
+  @keyframes axisSweep{to{transform:translateX(0)}}
+  #boot .start{margin-top:26px; font-size:10px; letter-spacing:.26em; color:var(--cyan);
+    text-transform:uppercase; opacity:0; animation:bootBlink 1.4s ease 1.5s infinite}
+  @keyframes bootBlink{0%,100%{opacity:.3}50%{opacity:.8}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="boot">
+    <div class="strand"></div>
+    <div class="lure"></div>
+    <div class="wm">DEEPER</div>
+    <div class="subt">Drop · Sink · Pull</div>
+    <div class="tag">one pull. everything you caught.</div>
+    <div class="axis"></div>
+    <div class="start">tap · then pull the hook down</div>
+  </div>
+  <div id="top">
+    <div class="bal" id="wallet"><span class="lab">Balance<b id="unitTag">cash</b></span><span class="val" id="bal">10,000</span></div>
+  </div>
+  <div id="dock">
+    <div class="readouts">
+      <div class="ro" id="betTile"><span class="lab">Bet</span><span class="num" id="betVal">50</span></div>
+      <div class="ro score"><span class="lab">Catch</span><span class="num" id="potNum">0</span></div>
+      <div class="ro mult"><span class="lab">Mult</span><span class="num" id="multNum">×1.00</span></div>
+      <div class="ro pot"><span class="lab">Cash out</span><span class="num" id="potentialNum">—</span></div>
+    </div>
+  </div>
+</div>
+<script type="module" src="./src/engine/main-v2.js"></script>
+</body>
+</html>
