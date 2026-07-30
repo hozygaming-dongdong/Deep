@@ -33,12 +33,13 @@ function defaultDepths(){
      rounds  (default 12000) — per fixed-stop depth; the tuner trades a little
              noise for responsiveness, the CLI can pass 200000 for a freeze.
      depths  — the fixed-stop ladder to profile.
-     refL    — the reference depth for frequency readouts (default 20). */
+     refL    — the reference depth for frequency readouts
+               (default: 50% of the configured total depth). */
 export function simSummary(cfg, opts = {}) {
   if (cfg) applyCfg(cfg);
   const rounds = opts.rounds || 12000;
   const depths = opts.depths || defaultDepths();
-  const refL = Math.max(1,Math.min(LAYERS,opts.refL || Math.min(20,LAYERS)));
+  const refL = Math.max(1,Math.min(LAYERS,opts.refL || Math.round(LAYERS*0.5)));
 
   /* progress: the depth loop is the bulk (N steps), then the freq pass and the
      human pass. Reported as a fraction over depths+2 total steps. In the worker

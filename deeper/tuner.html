@@ -424,7 +424,7 @@
       <section class="card domain-card domain-guide" id="guideSection">
         <div class="domain-head"><span class="domain-no">04</span><div class="domain-title"><h2>機制說明</h2><p>數學、表演與交付規則快速查閱</p></div></div>
         <div class="mech">
-          <div class="m"><div class="mh">四階深度與模擬口徑</div>SHALLOWS／REEF／DEEPER／ABYSS 分別為 <b>3／6／9／12 段</b>，一局最多 30 段。RTP 會在 12 個固定收網點各跑上方所選局數；事件頻率統一以<b>第 20 段</b>評估。</div>
+          <div class="m" id="depthGuideCopy"><div class="mh">四階深度與模擬口徑</div></div>
           <div class="m"><div class="mh">水池制（結果先抽）</div>先設定總 RTP，再把 RTP 佔比分配給匿名倍率結果；系統以「該列 RTP ÷ 平均倍率」反推命中機率，剩餘機率自動成為 ×0。魚、泡泡與巨獸只負責演出，<b>RTP 不屬於任何魚種或表演</b>。</div>
           <div class="m"><div class="mh">SINK 鯊魚＝每段獨立抽</div>每段只看出現率與 bite 表演率，不讀水池正負；咬斷時未付預算與 safe-bank 全部滾到下一局。沒咬中就變成<b>可設定倍率區間的獎品魚</b>。</div>
           <div class="m"><div class="mh">巨獸＝倍率保證＋PULL 事件鏈</div>先依預算由利維坦→蒼龍→大白鯊逐級判定；倍率保證命中必給獎、不斷鉤，並以自然進路徑的金魚銜接演出。只有未命中強制巨獸才抽 PULL 事件鏈：按是否鉤到金魚決定預告率，再抽大白鯊與蒼龍；<b>預告可落空</b>，預算不足只改成斷鉤表演，不改寫獎金。</div>
@@ -546,6 +546,19 @@ function normaliseDepthBands(target=cfg.depthBands){
 function totalDepthLayers(target=cfg.depthBands){
   const d=target&&typeof target==='object'?target:DEFAULTS.depthBands;
   return BANDS.reduce((a,b)=>a+Math.max(1,Math.round(+d[b]||DEFAULTS.depthBands[b]||1)),0);
+}
+function frequencyRefLayer(target=cfg.depthBands){
+  return Math.max(1,Math.round(totalDepthLayers(target)*0.5));
+}
+function updateGuideCopy(refL=frequencyRefLayer()){
+  const el=$('#depthGuideCopy');
+  if(!el) return;
+  const d=normaliseDepthBands();
+  const total=totalDepthLayers(d);
+  el.innerHTML='<div class="mh">四階深度與模擬口徑</div>'
+    + `SHALLOWS／REEF／DEEPER／ABYSS 分別為 <b>${BANDS.map(b=>d[b]).join('／')} 段</b>，`
+    + `一局最多 ${total} 段。RTP 會在 12 個固定收網點各跑上方所選局數；`
+    + `事件頻率統一以<b>第 ${refL} 段</b>評估（總層數 50% 位置）。`;
 }
 function chargedDepthSegments(target=cfg.depthBands, from=cfg.anteFrom){
   const d=target&&typeof target==='object'?target:DEFAULTS.depthBands;
@@ -788,6 +801,7 @@ function buildDepthBandEditor(host){
       cfg.depthBands[band]=Math.max(1,Math.min(60,Math.round(+input.value||1)));
       input.value=cfg.depthBands[band];
       updateDepthCostNotes();
+      updateGuideCopy();
       markDirty();
     });
     ctrlRow(wrap,band,`${BAND_METER_RANGE[band]} · segments in this band`,input);
@@ -1272,6 +1286,7 @@ function runSync(cfgSnap, rounds){          // no worker → main-thread (briefl
 }
 function pct(x){ return (x*100).toFixed(1)+'%'; }
 function render(s){
+  updateGuideCopy(s.refL);
   $('#dashmeta').textContent = s.rounds.toLocaleString()+' rounds';
   // ceiling
   const cv=$('#ceilVal'); cv.textContent=pct(s.ceiling.rtp); cv.className='v'+(s.ceilingSafe?'':' bad');
@@ -1336,7 +1351,7 @@ $('#rounds').addEventListener('change',()=>{
 });
 $('#reset').addEventListener('click', ()=>{ cfg=structuredClone(DEFAULTS); buildPoolTable(); buildParams(); markDirty(); });
 
-buildPoolTable(); buildParams(); updateSaveUI();
+buildPoolTable(); buildParams(); updateGuideCopy(); updateSaveUI();
 $('#status').textContent=savedRecord?'已載入保存參數':'就緒 · 使用程式預設';
 renderResultSkeleton();
 // Do not auto-run RTP and never auto-save. Only the operator can commit parameters.
