@@ -612,10 +612,13 @@ function loop(dt){
     for(const p of V.fx.pops){
       const was=p.t; p.t+=dt*1.25;                       // slower life = the ×N stays readable
       if(p.fishF && was<0.62 && p.t>=0.62){              // the mult SLAMS onto its fish
+        const shownMult=p.fishF._shownMultApplied||1;
+        const popMult=+p.mult||1;
         p.fishF._boostFlash=1; V.shake=Math.max(V.shake,3.6);
         p.fishF._boostExprT=0.72;
-        p.fishF._boostBaseBp=Math.round((+p.fishF.score||0)*BP);
-        p.fishF._boostMult=+p.mult||1;
+        p.fishF._boostBaseBp=Math.round((+p.fishF.score||0)*BP*shownMult);
+        p.fishF._boostMult=popMult;
+        p.fishF._shownMultApplied=shownMult*popMult;
       }
     }
     V.fx.pops=V.fx.pops.filter(p=>p.t<1);

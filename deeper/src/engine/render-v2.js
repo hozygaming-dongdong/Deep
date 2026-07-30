@@ -1716,7 +1716,7 @@ function drawFish(f,T,C,cam,hookDepth,ambient,sx,reelPath=null){
   // label — points for SCORE, ★ for scatter
   if(fade>0.45 && !ambient && hz<0.5){
     ctx.save(); ctx.textAlign='center';
-    const applied=f.multApplied||1;
+    const applied=f._shownMultApplied||1;
     const boosted=applied>1 && grabbed;
     const bf=f._boostFlash||0;                           // 1→0 right after the mult slams on
     if(bf>0){                                            // gold shock ring + ripple
