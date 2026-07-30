@@ -1333,13 +1333,21 @@ resize(); updateBal(); updateDock(); updateBetUI(false);
   const t=$('#unitTag'); if(t) t.textContent=unit().tag;
 }
 { const stage=$('#stage');
-  let lastTouchEnd=0;
-  stage.addEventListener('touchend', e=>{
-    const now=performance.now();
-    if(now-lastTouchEnd<320) e.preventDefault();
-    lastTouchEnd=now;
-  }, {passive:false});
-  stage.addEventListener('gesturestart', e=>e.preventDefault(), {passive:false});
+  const installZoomGuard=()=>{
+    let lastTouchEnd=0;
+    document.addEventListener('touchend', e=>{
+      const now=performance.now();
+      if(now-lastTouchEnd<360) e.preventDefault();
+      lastTouchEnd=now;
+    }, {capture:true, passive:false});
+    document.addEventListener('touchmove', e=>{
+      if(e.touches && e.touches.length>1) e.preventDefault();
+    }, {capture:true, passive:false});
+    ['gesturestart','gesturechange','gestureend'].forEach(type=>{
+      document.addEventListener(type, e=>e.preventDefault(), {capture:true, passive:false});
+    });
+  };
+  installZoomGuard();
   stage.addEventListener('pointerdown', e=>{ A.unlock();   // browsers only allow audio after a gesture
     const boot=$('#boot'); if(boot && !boot.classList.contains('gone')){ boot.classList.add('gone'); setTimeout(()=>boot.remove(),500); return; } onDown(e); });
   window.addEventListener('pointermove', onMove, {passive:true});
