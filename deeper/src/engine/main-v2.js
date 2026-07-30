@@ -49,6 +49,7 @@ const V = {
   steerX:0, steerTarget:0,
   downMeter:0, pullMeter:0,
   potDisplay:0,
+  auto:null,                // dev autoplay: simulates player decisions, never alters engine outcome
   unit:'CASH',            // wallet display scale — CASH 1:1 · PTS 1:100 (display only)
   cut:null, cutCam:null, rehook:null, cutFade:1, card:null, danger:0, committed:0, lastContact:null,   // cutFade: 1→0 fades the lost catch out on the ascent, 0→1 fades the calm idle sea in (seamless hand-off)
   zoomZ:1, zoomPunch:0, focus:0,   // PULL focus rig (v2.1: the climb owns the eye)
@@ -468,6 +469,88 @@ function onUp(){
   if(wasEngaged) disengage();                          // → HOLD, coast to a stop
 }
 
+/* ---------- dev autoplay ---------- */
+const AUTO_MODES = ['safe','deep','random'];
+function autoTargetDepth(mode){
+  if(mode==='deep') return layerDepthY(Math.max(2,Math.floor(LAYERS*0.78)));
+  if(mode==='random') return layerDepthY(2+Math.floor(Math.random()*Math.max(1,LAYERS-2)));
+  return layerDepthY(Math.max(2,Math.floor(LAYERS*0.48)));
+}
+function autoNotify(){
+  try{ window.dispatchEvent(new CustomEvent('deeper:auto', {detail:autoStatus()})); }catch{}
+}
+function autoPlay(mode='safe', opts={}){
+  mode=AUTO_MODES.includes(mode) ? mode : 'safe';
+  const rounds=Number.isFinite(+opts.rounds) ? Math.max(1,Math.floor(+opts.rounds)) : Infinity;
+  V.auto={on:true,mode,rounds,started:0,wait:0,targetDepth:autoTargetDepth(mode)};
+  autoNotify();
+  return autoStatus();
+}
+function autoStop(){
+  V.auto=null;
+  V.engaged=false; V.throttle=0; V.downMeter=0; V.pullMeter=0;
+  if(V.state==='SINK') setState('HOLD');
+  autoNotify();
+  return autoStatus();
+}
+function autoStatus(){
+  const a=V.auto;
+  return a ? {on:true, mode:a.mode, rounds:a.rounds, started:a.started, targetDepth:Math.round(a.targetDepth)}
+           : {on:false};
+}
+function autoBeginSink(){
+  if(V.balance<V.stake){ autoStop(); return false; }
+  calibrate();
+  const x=(cv?.getBoundingClientRect().left||0)+(cv?.clientWidth||LAYOUT.w)*0.5;
+  const y=(cv?.getBoundingClientRect().top||0)+LAYOUT.h*0.45;
+  V.drag={sx:x,sy:y,cx:x,cy:y+ENGAGE_PX,deepest:ENGAGE_PX,engageDy:0};
+  engageSink(ENGAGE_PX);
+  V.drag=null;
+  V.throttle=0.86;
+  return true;
+}
+function autoShouldPull(a){
+  const st=V.engine&&V.engine.st;
+  if(!st || st.over) return false;
+  if(V.hookDepth>=maxDepth()-8) return true;
+  if(a.mode==='deep') return V.hookDepth>=a.targetDepth;
+  if(a.mode==='random') return V.hookDepth>=a.targetDepth;
+  const pv=V.engine.previewPull(V.T,V.hookDepth);
+  const shownMult=(pv?.potentialBp||0)/BP;
+  return (shownMult>=1.5 && st.L>=2) || V.hookDepth>=a.targetDepth;
+}
+function tickAuto(dt){
+  const a=V.auto;
+  if(!a?.on) return;
+  const boot=$('#boot');
+  if(boot && !boot.classList.contains('gone')){
+    if(!beastArtUnlocked) return;
+    boot.classList.add('gone'); setTimeout(()=>boot.remove(),500);
+  }
+  a.wait=Math.max(0,(a.wait||0)-dt);
+  if(a.wait>0) return;
+  if(V.state==='IDLE' && !V.engine){
+    if(a.started>=a.rounds){ autoStop(); return; }
+    a.targetDepth=autoTargetDepth(a.mode);
+    a.started++;
+    autoBeginSink();
+    autoNotify();
+    return;
+  }
+  if(V.state==='SINK' || V.state==='HOLD'){
+    if(autoShouldPull(a)){
+      V.pullMeter=1;
+      doPull();
+      a.wait=0.35;
+      return;
+    }
+    if(V.state==='HOLD') setState('SINK');
+    V.engaged=true;
+    V.throttle=0.82;
+    V.downMeter=1;
+  }
+}
+
 /* ---------- main loop ---------- */
 function loop(dt){
   // the world clock: gameplay states advance it while the round is live, and
@@ -485,6 +568,7 @@ function loop(dt){
   V.danger += (computeDanger()-V.danger)*Math.min(1,dt*4);
   A.setDanger(V.danger);
   tickCard(dt);
+  tickAuto(dt);
 
   // steering has mass (eased, not 1:1)
   V.steerX += (V.steerTarget - V.steerX)*Math.min(1,dt*STEER_EASE);
@@ -1418,6 +1502,9 @@ window.DEEPER_V2 = {
   stepFrames(n=1, dt=1/60){ for(let i=0;i<n;i++) loop(dt); return V.state; },
   gDown:(x,y)=>onDown({clientX:x,clientY:y}), gMove:(x,y)=>onMove({clientX:x,clientY:y}), gUp:onUp,
   pull:doPull,
+  autoPlay:(mode='safe',opts={})=>autoPlay(mode,opts),
+  autoStop,
+  autoStatus,
   // dev: arm a beast on the current REELING round. escape=true plays the
   // line-break-but-paid branch; else held, paying `mult` (tier inferred from mult:
   // <30 WHALE · <100 GREAT WHALE · else MEGALODON).
@@ -1453,7 +1540,7 @@ window.DEEPER_V2 = {
 const SHOW_DEMO_PANEL = (import.meta.env && import.meta.env.DEV) || true;
 if(SHOW_DEMO_PANEL){
   const css=`
-  #beastDev{position:absolute;top:calc(env(safe-area-inset-top,10px) + 4px);right:8px;z-index:40;width:132px;
+  #beastDev{position:absolute;top:calc(env(safe-area-inset-top,10px) + 4px);right:8px;z-index:40;width:156px;
     font:600 10px/1.35 var(--font-ui,sans-serif);color:var(--bone,#E9F2F0);user-select:none;-webkit-user-select:none;
     background:rgba(6,15,24,.82);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
     border:1px solid rgba(246,194,67,.26);border-radius:9px;padding:7px;box-shadow:0 5px 18px rgba(0,0,0,.45)}
@@ -1477,22 +1564,29 @@ if(SHOW_DEMO_PANEL){
   #beastDev .off:hover{color:#f0b4b4}
   #beastDev .lbl{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ash,#7E9596);margin-top:8px;
     padding-top:7px;border-top:1px solid rgba(255,255,255,.08)}
-  #beastDev .shk.on{background:linear-gradient(180deg,#9a6cd0,#6d44a8);color:#fff;border-color:#C9A7E8;box-shadow:none}`;
+  #beastDev .shk.on{background:linear-gradient(180deg,#9a6cd0,#6d44a8);color:#fff;border-color:#C9A7E8;box-shadow:none}
+  #beastDev .auto.on{background:linear-gradient(180deg,#4fd6c8,#209f9a);color:#041317;border-color:#8df8ef;box-shadow:none}
+  #beastDev .auto-stop{flex:.72;color:#c89090}`;
   const style=document.createElement('style'); style.textContent=css; document.head.appendChild(style);
   const p=document.createElement('div'); p.id='beastDev';
   p.innerHTML='<div class="hd"><span>Dev ▸ Beast / Shark</span><span class="dot"></span></div>'+
     '<div class="row"><button data-m="20">大白鯊</button><button data-m="60">滄龍</button><button data-m="600">利維坦</button></div>'+
     '<div class="row"><button class="esc" data-esc>掙脫</button><button class="off" data-off>OFF</button></div>'+
     '<div class="lbl">Shark 每段強制</div>'+
-    '<div class="row"><button class="shk" data-shark="bite">必咬斷</button><button class="shk" data-shark="miss">必失手</button><button class="off" data-shark-off>OFF</button></div>';
+    '<div class="row"><button class="shk" data-shark="bite">必咬斷</button><button class="shk" data-shark="miss">必失手</button><button class="off" data-shark-off>OFF</button></div>'+
+    '<div class="lbl">Auto Play</div>'+
+    '<div class="row"><button class="auto" data-auto="safe">Safe</button><button class="auto" data-auto="deep">Deep</button><button class="auto" data-auto="random">Rnd</button><button class="off auto-stop" data-auto-off>Stop</button></div>';
   (document.getElementById('stage')||document.body).appendChild(p);
   p.querySelector('.hd').addEventListener('click', e=>{ e.stopPropagation(); p.classList.toggle('open'); });
   let esc=false, actM=null, shk=null;
   const tierBtns=[...p.querySelectorAll('button[data-m]')], escBtn=p.querySelector('[data-esc]');
   const shkBtns=[...p.querySelectorAll('button[data-shark]')];
-  const sync=()=>{ p.classList.toggle('on', actM!==null||shk!==null); escBtn.classList.toggle('on', esc);
+  const autoBtns=[...p.querySelectorAll('button[data-auto]')];
+  const sync=()=>{ const auto=window.DEEPER_V2.autoStatus();
+    p.classList.toggle('on', actM!==null||shk!==null||auto.on); escBtn.classList.toggle('on', esc);
     tierBtns.forEach(b=>b.classList.toggle('on', +b.dataset.m===actM));
-    shkBtns.forEach(b=>b.classList.toggle('on', b.dataset.shark===shk)); };
+    shkBtns.forEach(b=>b.classList.toggle('on', b.dataset.shark===shk));
+    autoBtns.forEach(b=>b.classList.toggle('on', auto.on && b.dataset.auto===auto.mode)); };
   p.addEventListener('pointerdown', e=>e.stopPropagation());   // 別觸發遊戲的下沉手勢
   tierBtns.forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); actM=+b.dataset.m;
     shk=null; window.DEEPER_V2.sharkEvery(null);              // 互斥:開巨獸就關鯊魚強制
@@ -1503,4 +1597,7 @@ if(SHOW_DEMO_PANEL){
     actM=null;                                                // sharkEvery 內部已 V.beastEvery=null,這裡同步 UI
     window.DEEPER_V2.sharkEvery(shk); sync(); }));
   p.querySelector('[data-shark-off]').addEventListener('click', e=>{ e.stopPropagation(); shk=null; window.DEEPER_V2.sharkEvery(null); sync(); });
+  autoBtns.forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); window.DEEPER_V2.autoPlay(b.dataset.auto); sync(); }));
+  p.querySelector('[data-auto-off]').addEventListener('click', e=>{ e.stopPropagation(); window.DEEPER_V2.autoStop(); sync(); });
+  window.addEventListener('deeper:auto', sync);
 }
