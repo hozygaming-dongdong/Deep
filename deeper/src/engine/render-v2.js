@@ -761,10 +761,7 @@ function loadBeastPose(k){
   im.src=pose.src;
   pose.img=im;
 }
-['gwCruise','gwBite','gwDrag'].forEach(loadBeastPose);
-const loadHeavyBeasts=()=>['moBurst','moClamp','lvOpen','lvClosed'].forEach(loadBeastPose);
-if(document.readyState==='complete') setTimeout(loadHeavyBeasts, 0);
-else window.addEventListener('load', ()=>setTimeout(loadHeavyBeasts, 0), {once:true});
+Object.keys(BEAST_POSE).forEach(loadBeastPose);
 const beastPoseReady = pose => !!(pose && pose.img && pose.img.complete && pose.img.naturalWidth);
 const BEAST_H=[0.238, 0.62, 1.06]; // 每階高度佔螢幕比（大白鯊 0.34→0.27→0.216→0.238,hao 縮兩輪再放大10%）
 /* 兩股力的身體角度（hao）：0=橫游 1=垂直吊掛。跨幀狀態,只被「線真的在拉(pull>0)」拽向
