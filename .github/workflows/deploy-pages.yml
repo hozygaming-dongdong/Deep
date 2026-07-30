@@ -1,0 +1,58 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: deeper/package-lock.json
+
+      - name: Install dependencies
+        working-directory: deeper
+        run: npm ci
+
+      - name: Build single-file game
+        working-directory: deeper
+        run: npm run build:single
+
+      - name: Prepare Pages artifact
+        run: |
+          mkdir -p pages
+          cp deeper/dist-single/deeper.html pages/index.html
+          cp deeper/dist-single/deeper.html pages/deeper.html
+          if [ -d deeper/dist-single/beasts ]; then
+            cp -R deeper/dist-single/beasts pages/beasts
+          fi
+          touch pages/.nojekyll
+
+      - name: Publish to gh-pages
+        run: |
+          cd pages
+          git init -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Deploy ${GITHUB_SHA}"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin gh-pages
