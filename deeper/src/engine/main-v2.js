@@ -197,6 +197,16 @@ function armMissHolds(st){
     b.adjX=0; b.adjT=0; b._missHold=true; b._slip=null;
   }
 }
+function reelPathTime(st,d){
+  const p=st&&st.reelPath;
+  return p ? p.startT + Math.max(0, p.startDepth - d)/REEL_SPEED : V.T;
+}
+function reelPathX(st,d){
+  const p=st&&st.reelPath;
+  return p
+    ? lineXAtDepth(d, reelPathTime(st,d), d, st.C, p.steerX)
+    : lineXAtDepth(d, V.T, d, st.C, st.steerX);
+}
 // the gesture gauges click as each notch lights (feel: the drag has detents)
 let lastDownNotch=0, lastPullNotch=0;
 function notchTick(meter, last){ const n=Math.floor(meter*4+1e-6);
@@ -694,9 +704,10 @@ function tickReel(dt){
       if(!f._grab && V.hookDepth<=f.depth){
         f._grab=true; f._hookT=V.T; f._order=r.hooked++;
         f._reelDepth=V.hookDepth+(f._order+1)*REEL_SPACING;
-        f._fromX=fishX(f,V.T,V.engine.C); f._fromY=fishY(f,V.T);
-        const biteLine=lineXAtDepth(f.depth,V.T,f.depth,st.C,st.steerX);
-        const fromScreen=fishProjectedX(f,V.T,st.C);
+        const contactT=reelPathTime(st,f.depth);
+        f._fromX=fishX(f,contactT,V.engine.C); f._fromY=fishY(f,contactT);
+        const biteLine=reelPathX(st,f.depth);
+        const fromScreen=fishProjectedX(f,contactT,st.C);
         f._biteGap=Math.abs(fromScreen-biteLine);
         f._attachX=(fromScreen>=biteLine?1:-1)
           *Math.min(f._biteGap,Math.max(10,fishCatchRadius(f,V.T)-8));
@@ -720,7 +731,7 @@ function tickReel(dt){
         if(V.hookDepth > f.depth + DODGE_LEAD) continue;       // reel not near enough
         f.adjX = 0;
         const nx=fishProjectedX(f,V.T,st.C);
-        const px = lineXAtDepth(f.depth, V.T, f.depth, st.C, st.steerX);
+        const px = reelPathX(st,f.depth);
         const clearance=fishCatchRadius(f,V.T);
         if(Math.abs(nx - px) >= clearance + 22){               // off the visible body path → no slip needed
           if(V.hookDepth <= f.depth) f._missHold = false;      // and the hook has cleared it
@@ -735,7 +746,7 @@ function tickReel(dt){
       // plays (it's in nx), just un-amplified, so the fish never swings back inside.
       f.adjX = 0;
       const worldX=fishX(f,V.T,st.C);
-      const px = lineXAtDepth(f.depth, V.T, f.depth, st.C, st.steerX);
+      const px = reelPathX(st,f.depth);
       const k = Math.min(1, (V.T - f._slip.t0)/SLIP_RAMP);
       const ramp = 1 - Math.pow(1-k, 2.4);
       const clearance=fishCatchRadius(f,V.T);
@@ -751,7 +762,7 @@ function tickReel(dt){
         if(V.hookDepth > b.depth + DODGE_LEAD) continue;
         b.adjX=0;
         const nx=bubbleProjectedX(b,V.T,st.C);
-        const px=lineXAtDepth(b.depth,V.T,b.depth,st.C,st.steerX);
+        const px=reelPathX(st,b.depth);
         const clearance=bubblePopRadius(b,V.T);
         if(Math.abs(nx-px)>=clearance+20){
           if(V.hookDepth<=b.depth) b._missHold=false;
@@ -762,7 +773,7 @@ function tickReel(dt){
       if(V.hookDepth<=b.depth-8){ b._missHold=false; continue; }
       b.adjX=0;
       const worldX=bubbleX(b,V.T,st.C);
-      const px=lineXAtDepth(b.depth,V.T,b.depth,st.C,st.steerX);
+      const px=reelPathX(st,b.depth);
       const k=Math.min(1,(V.T-b._slip.t0)/SLIP_RAMP);
       const ramp=1-Math.pow(1-k,2.4);
       const targetWorld=bubbleWorldXAtScreen(b,V.T,px+b._slip.side*(bubblePopRadius(b,V.T)+14));
@@ -1047,7 +1058,7 @@ function tickWhale(dt){
    FX and coins must happen HERE, never at a fixed center (hao 2026-07-19). */
 function crossX(){
   if(!V.engine) return ANCHOR_X;
-  return lineXAtDepth(2, V.T, 2, V.engine.C, V.engine.st.steerX||0);
+  return reelPathX(V.engine.st, 2);
 }
 
 /* each strung fish that crosses the waterline bursts into coins — shared by

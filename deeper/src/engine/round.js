@@ -180,8 +180,9 @@ function settleBase(st, rng, hookStartDepth){
   const hookDepth = Number.isFinite(hookStartDepth)
     ? Math.max(layerDepth,hookStartDepth)
     : layerDepth;
-  const tPass  = d => st.t + Math.max(0, hookDepth - d)/REEL_SPEED;
-  const hookAt = (d,t) => lineXAtDepth(d, t, d, C, st.steerX);
+  const path = st.reelPath || { startT:st.t, startDepth:hookDepth, steerX:st.steerX };
+  const tPass  = d => path.startT + Math.max(0, path.startDepth - d)/REEL_SPEED;
+  const hookAt = (d,t) => lineXAtDepth(d, t, d, C, path.steerX);
   const budgetBp = Math.round(st.ordinaryPoolBp * poolExposed(st.L, LAYERS));
   /* Fixed stream shape: natural geometry may change which bubbles pop, but it
      must never shift the later legacy show roll. */
@@ -301,6 +302,7 @@ export function createRound(seedStr, atT0, carryInBp){
     beastBudgetBreak:false,
     over:false, snapped:false, sharkCut:false, stopL:0, payoutBp:0,
     steerX:0,                              // player's lateral aim (gesture); 0 = pure current
+    reelPath:null,                         // frozen PULL path shared by settlement, reel animation and render
   };
   enter(st, rng, 1, atT0!==undefined ? atT0 : 0);   // DROP resolves L1 at t0
   const api = {
@@ -319,8 +321,9 @@ export function createRound(seedStr, atT0, carryInBp){
       const t = ((typeof atT==='number') ? atT : st.t) + PULL_WINDUP;
       const layerDepth = layerDepthY(st.L);
       const hookDepth = Number.isFinite(atDepth) ? Math.max(layerDepth,atDepth) : layerDepth;
-      const tPass = d => t + Math.max(0, hookDepth - d)/REEL_SPEED;
-      const hookAt = (d,tt) => lineXAtDepth(d, tt, d, C, st.steerX);
+      const path = { startT:t, startDepth:hookDepth, steerX:st.steerX };
+      const tPass = d => path.startT + Math.max(0, path.startDepth - d)/REEL_SPEED;
+      const hookAt = (d,tt) => lineXAtDepth(d, tt, d, C, path.steerX);
       let potBp=0, count=0, scatters=0;
       for(const f of st.fish){
         if(f.caught||f.escaped||fishGone(f,tPass(f.depth))) continue;
@@ -349,6 +352,9 @@ export function createRound(seedStr, atT0, carryInBp){
       // player's pull moment is a real input; the strike lands after the windup
       st.t = ((typeof atT==='number') ? atT : st.t) + PULL_WINDUP;
       st.stopL = st.L;
+      const layerDepth = layerDepthY(st.L);
+      const startDepth = Number.isFinite(atDepth) ? Math.max(layerDepth,atDepth) : layerDepth;
+      st.reelPath = { startT:st.t, startDepth, steerX:st.steerX };
       /* v2.1e (hao 2026-07-19): the PULL no longer re-rolls every shark it
          threads past. That second, invisible death happened AFTER the player
          had already committed and could not be read on screen — the whole
@@ -357,7 +363,7 @@ export function createRound(seedStr, atT0, carryInBp){
          THROUGH the accumulated sharks~~ — retired; the deep-play RTP it used
          to hold down is re-absorbed by the depth-scaled bite below.) */
       // catch — solve the arrangement + base lane at this depth (pure, no rng)
-      settleBase(st, rng, atDepth);
+      settleBase(st, rng, startDepth);
       /* ---------- BEAST SHOW: presentation selected after settlement ----------
          One roll is still consumed unconditionally so the seeded stream shape
          remains stable. The full sealed budget decides which tiers are eligible;

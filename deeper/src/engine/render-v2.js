@@ -15,7 +15,7 @@
    for the loss pole. No glow filters, no magenta.
    ============================================================ */
 import {
-  WORLD_W, ANCHOR_X, LAYERS, LAYER_DEPTH, CATCH_RADIUS, BP,
+  WORLD_W, ANCHOR_X, LAYERS, LAYER_DEPTH, CATCH_RADIUS, BP, REEL_SPEED,
   SHARK_CONTACT_DIST, SEG_M, BAND_EDGES, BAND_INFO,
   layerDepthY, bandOf, currentDisp, lineXAtDepth, depthMeters,
 } from './world.js';
@@ -310,6 +310,9 @@ function drawRuler(cam, hookDepth){
 export function draw(engine, hookDepth, T, cam, shake, fx, ambient, zoom){
   const W=LAYOUT.w, H=LAYOUT.h, C=engine.C, st=engine.st;
   const sx=st.steerX||0;
+  const reelPath=st.reelPath;
+  const pathTime=d=>reelPath ? reelPath.startT + Math.max(0, reelPath.startDepth - d)/REEL_SPEED : T;
+  const pathX=(d,lineDepth=d)=>reelPath ? lineXAtDepth(d,pathTime(d),d,C,reelPath.steerX) : lineXAtDepth(d,T,lineDepth,C,sx);
   let shook=false;
   if(shake>0.2){ ctx.save(); ctx.translate((Math.random()*2-1)*shake,(Math.random()*2-1)*shake); shook=true; }
   let zoomed=false;
@@ -381,7 +384,7 @@ export function draw(engine, hookDepth, T, cam, shake, fx, ambient, zoom){
   let pierceX=ANCHOR_X;
   if(hookDepth>0.5){
     const dB=Math.min(hookDepth, LINE_BLEND);
-    const xB=lineXAtDepth(dB,T,hookDepth,C,sx), yB=worldY(dB)-cam;
+    const xB=pathX(dB,hookDepth), yB=worldY(dB)-cam;
     const sy0=worldY(0)-cam, yTop=-8;
     if(yB>yTop+4) pierceX=ANCHOR_X+(xB-ANCHOR_X)*(sy0-yTop)/(yB-yTop);
   }
@@ -399,8 +402,8 @@ export function draw(engine, hookDepth, T, cam, shake, fx, ambient, zoom){
   if(hd>2 && !ambient){
     const N=26; ctx.save();
     ctx.beginPath();
-    for(let i=0;i<=N;i++){ const d=hd*i/N; const lx=lineXAtDepth(d,T,hd,C,sx); const y=worldY(d)-cam; if(i===0) ctx.moveTo(lx-CATCH_RADIUS,y); else ctx.lineTo(lx-CATCH_RADIUS,y); }
-    for(let i=N;i>=0;i--){ const d=hd*i/N; const lx=lineXAtDepth(d,T,hd,C,sx); const y=worldY(d)-cam; ctx.lineTo(lx+CATCH_RADIUS,y); }
+    for(let i=0;i<=N;i++){ const d=hd*i/N; const lx=pathX(d,hd); const y=worldY(d)-cam; if(i===0) ctx.moveTo(lx-CATCH_RADIUS,y); else ctx.lineTo(lx-CATCH_RADIUS,y); }
+    for(let i=N;i>=0;i--){ const d=hd*i/N; const lx=pathX(d,hd); const y=worldY(d)-cam; ctx.lineTo(lx+CATCH_RADIUS,y); }
     ctx.closePath();
     ctx.fillStyle='rgba(111,227,225,0.05)'; ctx.fill();
     ctx.strokeStyle='rgba(111,227,225,0.10)'; ctx.lineWidth=1; ctx.stroke();
@@ -420,7 +423,7 @@ export function draw(engine, hookDepth, T, cam, shake, fx, ambient, zoom){
   // --- fish far→near; reeled fish snap to the near plane ---
   const zorder = st.fish.map(f => [ (f._grab&&f._reelDepth!=null) ? -9999 : fishZ(f,T), f ])
                         .sort((a,b)=> b[0]-a[0]);
-  for(const [,f] of zorder) drawFish(f,T,C,cam,hd,ambient,sx);
+  for(const [,f] of zorder) drawFish(f,T,C,cam,hd,ambient,sx,reelPath);
   if(!ambient) for(const s of st.sharks) drawShark(s,T,C,cam,hd,sx);
 
   // --- THE LINE — a plumb line out of the sky: its anchor is the TOP-CENTER
@@ -451,11 +454,11 @@ export function draw(engine, hookDepth, T, cam, shake, fx, ambient, zoom){
       // drifts with the sway so lateral steering reads natural); from
       // LINE_BLEND down the rope IS the engine's corridor line, exactly.
       const dB=Math.min(hd, LINE_BLEND);
-      for(let i=0;i<=N;i++){ const d=dB+(hd-dB)*i/N; const x=lineXAtDepth(d,T,hd,C,sx)+shiver*Math.sin(i*1.7); const y=worldY(d)-cam; ctx.lineTo(x,Math.max(y,lineTop)); }
+      for(let i=0;i<=N;i++){ const d=dB+(hd-dB)*i/N; const x=pathX(d,hd)+shiver*Math.sin(i*1.7); const y=worldY(d)-cam; ctx.lineTo(x,Math.max(y,lineTop)); }
     } else {
       // breached: the hook leaves the water at the REAL crossing point, then
       // eases toward plumb under the sky anchor as it rises (no x-snap)
-      const cx0=lineXAtDepth(0.5,T,0.5,C,sx);
+      const cx0=pathX(0.5,0.5);
       const k=Math.min(1, Math.max(0,-hd)/110);
       ctx.lineTo(cx0+(ANCHOR_X-cx0)*k, Math.max(worldY(hd)-cam, lineTop));
     }
@@ -466,8 +469,8 @@ export function draw(engine, hookDepth, T, cam, shake, fx, ambient, zoom){
   //     drawWhale instead (it must ride the thrash) ---
   if(!whaleClamp && !noHook){
     let hx, hy=worldY(hd)-cam;
-    if(hd>0.5) hx=lineXAtDepth(hd,T,hd,C,sx);
-    else { const cx0=lineXAtDepth(0.5,T,0.5,C,sx); const k=Math.min(1, Math.max(0,-hd)/110); hx=cx0+(ANCHOR_X-cx0)*k; }
+    if(hd>0.5) hx=pathX(hd,hd);
+    else { const cx0=pathX(0.5,0.5); const k=Math.min(1, Math.max(0,-hd)/110); hx=cx0+(ANCHOR_X-cx0)*k; }
     drawHook(hx,hy,T,hd>0.5?currentDisp(hd,T,C):0); }
   if(cutSnap) drawCutLine(fx.cutLine, T, cam);
   if(fx && fx.splash) drawSplash(fx.splash, cam);
@@ -1568,19 +1571,21 @@ function drawBubble(b,T,C,cam,hookDepth,ambient,sx){
    each archetype steps ~1.45× up so the class reads instantly.
    v2.1d: FEWER, BIGGER — every fish ~1.4× (scarce screen = each one matters). */
 // v2.2b — everything in the water is bigger: fewer, larger, each one an event
-function drawFish(f,T,C,cam,hookDepth,ambient,sx){
+function drawFish(f,T,C,cam,hookDepth,ambient,sx,reelPath=null){
   if(f._swallowed) return;                 // inside the whale
   if(f._cashed) return;                    // already burst into coins at the surface
   const grabbed = f._grab && (f._reelDepth!=null);
   const depth = grabbed ? f._reelDepth : f.depth;
   const lineD = hookDepth>0 ? hookDepth : depth;
+  const pathTime=d=>reelPath ? reelPath.startT + Math.max(0, reelPath.startDepth - d)/REEL_SPEED : T;
+  const pathX=(d,lineDepth=d)=>reelPath ? lineXAtDepth(d,pathTime(d),d,C,reelPath.steerX) : lineXAtDepth(d,T,lineDepth,C,sx);
   const fan = grabbed ? Math.sin((f._order||0)*2.1)*16 : 0;
   let x, y;
   if(grabbed){
     // BITE — the fish strikes onto the line from wherever it swam to
     // (smoothstep over 0.22s), then rides the string
     const k=Math.min(1,(T-(f._hookT!=null?f._hookT:T))/0.22), ke=k*k*(3-2*k);
-    const lx=lineXAtDepth(depth,T,lineD,C,sx)+fan+(f._attachX||0), ly=worldY(depth);
+    const lx=pathX(depth,lineD)+fan+(f._attachX||0), ly=worldY(depth);
     x = (f._fromX!=null)? f._fromX+(lx-f._fromX)*ke : lx;
     y = ((f._fromY!=null)? worldY(f._fromY)+(ly-worldY(f._fromY))*ke : ly) - cam;
   } else {
@@ -1605,7 +1610,7 @@ function drawFish(f,T,C,cam,hookDepth,ambient,sx){
   const hz = grabbed ? 0 : haze(z);
   const phase=fishTailPhase(f,T);
   const inZone = !ambient && !grabbed && hookDepth>2 && !f.caught && !f.escaped &&
-                 Math.abs(px-lineXAtDepth(f.depth,T,hookDepth,C,sx))<fishCatchRadius(f,T);
+                 Math.abs(px-pathX(f.depth,hookDepth))<fishCatchRadius(f,T);
   // Do not reveal the sealed verdict before physical contact. Gold begins only
   // once the hook has actually taken the fish.
   const warm = grabbed;
