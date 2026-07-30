@@ -183,7 +183,8 @@ function settleBase(st, rng, hookStartDepth){
   const path = st.reelPath || { startT:st.t, startDepth:hookDepth, steerX:st.steerX };
   const tPass  = d => path.startT + Math.max(0, path.startDepth - d)/REEL_SPEED;
   const hookAt = (d,t) => lineXAtDepth(d, t, d, C, path.steerX);
-  const budgetBp = Math.round(st.ordinaryPoolBp * poolExposed(st.L, LAYERS));
+  const exposedBudgetBp = Math.round(st.ordinaryPoolBp * poolExposed(st.L, LAYERS));
+  const budgetBp = exposedBudgetBp + st.carryInBp;
   /* Fixed stream shape: natural geometry may change which bubbles pop, but it
      must never shift the later legacy show roll. */
   const bubbleAssign=new Map();
@@ -266,12 +267,10 @@ function settleBase(st, rng, hookStartDepth){
 /* createRound — build a fresh round on one seeded stream and DROP into L1.
    Returns a small driver the game/sim calls: canSink() / sink() / pull(atT).
 
-   v2.7 CARRYOVER — `carryInBp` is the ordinary residual the LAST round left
-   unclaimed (you pulled before the water was fully laid out). It is added to
-   this round's drawn budget, so nothing you drew is ever lost by settling
-   early — it just rolls forward. No presentation may erase it. That makes RTP
-   a property of the TABLE regardless of when you pull; depth controls only
-   exposure timing. */
+   v2.27 CARRYOVER — `carryInBp` is the ordinary residual the LAST round left
+   unclaimed. It rolls into this round's visible catch budget, so it can only be
+   paid by fish/bubbles the PULL path actually touches; untouched value keeps
+   rolling forward. */
 export function createRound(seedStr, atT0, carryInBp){
   const rng = mulberry32(xfnv1a(seedStr));
   const C = { p0: rng()*6.2831853, p1: rng()*6.2831853, p2: rng()*6.2831853, p3: rng()*6.2831853 };  // current phases
@@ -283,8 +282,8 @@ export function createRound(seedStr, atT0, carryInBp){
   const ordinaryPoolBp = openingBp;
   const beastPoolBp = 0;                            // compatibility trace; v2.12 has no economic beast lane
   const carryBp = Math.max(0, Math.round(carryInBp||0));
-  /* CARRY = a SAFE BANK, not water. The incoming carry is paid on top of this
-     round's take, and this round's unexposed residual becomes the next carry. */
+  /* CARRY = stored water value. It funds visible catches instead of paying out
+     directly, so balance movement still matches what the hook touched. */
   const st = {
     C, L:0, t:0,
     fish:[], bubbles:[], sharks:[],
@@ -366,13 +365,13 @@ export function createRound(seedStr, atT0, carryInBp){
       settleBase(st, rng, startDepth);
       /* ---------- BEAST SHOW: presentation selected after settlement ----------
          One roll is still consumed unconditionally so the seeded stream shape
-         remains stable. The full sealed budget decides which tiers are eligible;
-         caught-now and carry still decide money, untouched by the show. */
+         remains stable. Carry can fund visible fish/bubbles, but it never pays
+         directly without a visible catch. */
       const beastU = rng();
       st.beastShowRoll=beastU;
       st.roundPayBp = st.baseBp;
-      st.payoutBp   = st.roundPayBp + st.carryInBp;
-      st.carryOutBp = Math.max(0, st.ordinaryPoolBp - st.baseBp);
+      st.payoutBp   = st.roundPayBp;
+      st.carryOutBp = Math.max(0, st.carryInBp + st.ordinaryPoolBp - st.baseBp);
       st.beastShowBudgetBp=st.payoutBp+st.carryOutBp;
       const budgetMult=st.beastShowBudgetBp/BP;
       /* Forced beast show (multiplier ladder) always has priority and can never
