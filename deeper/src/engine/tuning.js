@@ -11,7 +11,7 @@
    ============================================================ */
 import {
   applyCfg, CFG, BP, bandOf, BEAST_TIER_NAME, BEAST_SHOW_RULES,
-  POOL_RTP, ANTE_EV, ANTE_AMT, LAYERS,
+  POOL_RTP, ANTE_EV, ANTE_AMT, LAYERS, BAND_EDGES,
 } from './world.js';
 import { simRound } from './round.js';
 
@@ -20,6 +20,13 @@ const fixedStop = (L) => (v) => v.L >= L ? 'PULL' : 'SINK';
 // a human-ish policy: cash out once the shown potential clears th× the spend,
 // or bail at a depth cap. Mirrors how a real player reads the dock's "≈".
 const humanCashout = (th, maxL) => (v) => (v.potentialBp >= th * v.spendBp || v.L >= maxL) ? 'PULL' : 'SINK';
+function defaultDepths(){
+  const set=new Set([1, LAYERS]);
+  for(const e of BAND_EDGES.slice(1)) set.add(Math.max(1,Math.min(LAYERS,e)));
+  const step=Math.max(1,Math.ceil(LAYERS/10));
+  for(let L=step;L<LAYERS;L+=step) set.add(L);
+  return [...set].sort((a,b)=>a-b);
+}
 
 /* simSummary(cfg, opts) — apply cfg (or null to use current), run the sim, and
    return a plain object of everything the tuner renders. opts:
@@ -30,8 +37,8 @@ const humanCashout = (th, maxL) => (v) => (v.potentialBp >= th * v.spendBp || v.
 export function simSummary(cfg, opts = {}) {
   if (cfg) applyCfg(cfg);
   const rounds = opts.rounds || 12000;
-  const depths = opts.depths || [3, 6, 9, 12, 15, 18, 20, 22, 24, 26, 28, 30];
-  const refL = opts.refL || 20;
+  const depths = opts.depths || defaultDepths();
+  const refL = Math.max(1,Math.min(LAYERS,opts.refL || Math.min(20,LAYERS)));
 
   /* progress: the depth loop is the bulk (N steps), then the freq pass and the
      human pass. Reported as a fraction over depths+2 total steps. In the worker

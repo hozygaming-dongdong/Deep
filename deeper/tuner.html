@@ -447,7 +447,7 @@
 </div>
 
 <script type="module">
-import { CFG, LAYERS, applyCfg, rebuildCfg } from './src/engine/world.js';
+import { CFG, applyCfg, rebuildCfg } from './src/engine/world.js';
 import { simSummary } from './src/engine/tuning.js';
 import { SAVED_CFG_KEY, SAVED_CFG_CHANNEL, readSavedCfg } from './src/engine/saved-config.js';
 
@@ -470,13 +470,15 @@ const defaultAnteEv=defaultAntePool.reduce((a,r)=>a+(+r.p||0)*(+r.mult||0),0);
 // deep clone the shipped defaults so ↺ can restore them
 const DEFAULTS = structuredClone({
   targetRtp:defaultTargetRtp, poolRows:defaultPoolRows.slice(0,10),
+  depthBands: CFG.depthBands,
   poolExact: CFG.poolExact, poolRange: CFG.poolRange, antePool:CFG.antePool,
   beastShowRules: CFG.beastShowRules,
   goldFishTeaseP: CFG.goldFishTeaseP,
   noGoldFishTeaseP: CFG.noGoldFishTeaseP,
   teaseToGreatWhiteP: CFG.teaseToGreatWhiteP,
   greatWhiteToMosasaurP: CFG.greatWhiteToMosasaurP,
-  anteAmt: CFG.anteAmt, anteFrom: CFG.anteFrom, sharkSpawnP: CFG.sharkSpawnP,
+  anteAmt: CFG.anteAmt, anteFrom: CFG.anteFrom, sharkEnabled: CFG.sharkEnabled,
+  sharkSpawnP: CFG.sharkSpawnP,
   sharkBiteP: CFG.sharkBiteP, sharkPrizeMin:CFG.sharkPrizeMin, sharkPrizeMax:CFG.sharkPrizeMax,
   spawnDensity: CFG.spawnDensity,
   appearanceByBand: CFG.appearanceByBand,
@@ -537,6 +539,19 @@ let draftChanged=false;
 let rtpKnownRows=new WeakSet();
 const BANDS = ['SHALLOWS','REEF','DEEPER','ABYSS'];
 const $ = s => document.querySelector(s);
+const BAND_METER_RANGE={SHALLOWS:'0-50m',REEF:'50-200m',DEEPER:'200-500m',ABYSS:'500m+'};
+function normaliseDepthBands(target=cfg.depthBands){
+  target=target&&typeof target==='object'?target:{};
+  cfg.depthBands=Object.fromEntries(BANDS.map(b=>[b,Math.max(1,Math.min(60,Math.round(+target[b]||DEFAULTS.depthBands[b]||1)))]));
+  return cfg.depthBands;
+}
+function totalDepthLayers(target=cfg.depthBands){
+  const d=target&&typeof target==='object'?target:DEFAULTS.depthBands;
+  return BANDS.reduce((a,b)=>a+Math.max(1,Math.round(+d[b]||DEFAULTS.depthBands[b]||1)),0);
+}
+function bandRangeLabel(band){
+  return `${BAND_METER_RANGE[band]} · ${normaliseDepthBands()[band]} segments`;
+}
 
 /* ---------- build controls ---------- */
 function numInput(val, step, on){
@@ -740,6 +755,29 @@ function ctrlRow(host, label, sub, input){
   l.htmlFor=input.id;
   row.appendChild(l); row.appendChild(input); host.appendChild(row);
 }
+function buildDepthBandEditor(host){
+  host.querySelectorAll('.depth-band-editor').forEach(e=>e.remove());
+  normaliseDepthBands();
+  const wrap=document.createElement('div'); wrap.className='depth-band-editor grp';
+  const head=document.createElement('div'); head.className='gh'; head.textContent='Depth segments';
+  const note=document.createElement('div'); note.className='density-note';
+  const updateNote=()=>{ note.textContent=`Total ${totalDepthLayers()} segments · changes LAYERS, bandOf(), the depth ruler, sim stops, and full-dive shark odds.`; };
+  wrap.append(head,note);
+  BANDS.forEach(band=>{
+    const input=document.createElement('input');
+    input.type='number'; input.inputMode='numeric'; input.step='1'; input.min='1'; input.max='60';
+    input.value=cfg.depthBands[band];
+    input.addEventListener('input',()=>{
+      cfg.depthBands[band]=Math.max(1,Math.min(60,Math.round(+input.value||1)));
+      input.value=cfg.depthBands[band];
+      updateNote();
+      markDirty();
+    });
+    ctrlRow(wrap,band,`${BAND_METER_RANGE[band]} · segments in this band`,input);
+  });
+  updateNote();
+  host.appendChild(wrap);
+}
 const WEIGHT_COLORS=['#556B78','#008C99','#D08B13','#7656B2','#2F8A57','#C65D23','#3276B1','#8C6A3A'];
 const WEIGHT_TEXT=['#FFFFFF','#FFFFFF','#1B2733','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF'];
 function distributeWeightCents(rows,indices,totalCents){
@@ -875,7 +913,7 @@ function buildDensityEditor(host, density, appearance){
   const note=document.createElement('div'); note.className='density-note';
   note.textContent='四個階段各自設定；點色塊後可拖左／右界調整比例。';
   editor.appendChild(note);
-  const bandRange={SHALLOWS:'0–50m · 3 段',REEF:'50–200m · 6 段',DEEPER:'200–500m · 9 段',ABYSS:'500m+ · 12 段'};
+  const bandRange=Object.fromEntries(BANDS.map(b=>[b,bandRangeLabel(b)]));
   const bandMeta={
     SHALLOWS:{no:'01',zh:'淺層'},REEF:{no:'02',zh:'礁區'},
     DEEPER:{no:'03',zh:'深海'},ABYSS:{no:'04',zh:'深淵'},
@@ -1005,10 +1043,19 @@ function buildParams(){
   const gs=$('#grpShark'); gs.querySelectorAll('.row,.shark-rate-note').forEach(e=>e.remove());
   const sharkRateNote=document.createElement('div'); sharkRateNote.className='shark-rate-note';
   const updateSharkRate=()=>{
-    const per=Math.max(0,Math.min(1,(+cfg.sharkSpawnP||0)*(+cfg.sharkBiteP||0)));
-    const full=1-Math.pow(1-per,LAYERS);
-    sharkRateNote.innerHTML=`目前每段斷線 <b>${(per*100).toFixed(2)}%</b> · 若走滿 ${LAYERS} 段，至少一次約 <b>${(full*100).toFixed(1)}%</b>`;
+    const per=cfg.sharkEnabled===false ? 0 : Math.max(0,Math.min(1,(+cfg.sharkSpawnP||0)*(+cfg.sharkBiteP||0)));
+    const layers=totalDepthLayers();
+    const full=1-Math.pow(1-per,layers);
+    sharkRateNote.innerHTML=`目前每段斷線 <b>${(per*100).toFixed(2)}%</b> · 若走滿 ${layers} 段，至少一次約 <b>${(full*100).toFixed(1)}%</b>`;
   };
+  const sharkEnabled=document.createElement('input');
+  sharkEnabled.type='checkbox'; sharkEnabled.checked=cfg.sharkEnabled!==false;
+  sharkEnabled.addEventListener('change',()=>{
+    cfg.sharkEnabled=sharkEnabled.checked;
+    updateSharkRate();
+    markDirty();
+  });
+  ctrlRow(gs,'啟用 SINK 鯊魚','關閉時 SINK 永遠不會被咬斷；保留下方機率數值方便重新啟用',sharkEnabled);
   const sharkSpawn=mkNum(Math.round((+cfg.sharkSpawnP||0)*1000)/10,0.5); sharkSpawn.min=0; sharkSpawn.max=100;
   sharkSpawn.addEventListener('input',()=>{
     const pct=Math.max(0,Math.min(100,Number.isFinite(+sharkSpawn.value)?+sharkSpawn.value:0));
@@ -1047,7 +1094,8 @@ function buildParams(){
   BANDS.forEach(b=>{ const o=document.createElement('option'); o.value=b; o.textContent=b; if(b===cfg.anteFrom)o.selected=true; fromSel.appendChild(o); });
   fromSel.addEventListener('change',()=>{ cfg.anteFrom=fromSel.value; markDirty(); });
   ctrlRow(ga,'起始帶','哪一帶開始加注 (預設 REEF)', fromSel);
-  const gp=$('#grpSpawn'); gp.querySelectorAll('.row,.density-editor').forEach(e=>e.remove());
+  const gp=$('#grpSpawn'); gp.querySelectorAll('.row,.density-editor,.depth-band-editor').forEach(e=>e.remove());
+  buildDepthBandEditor(gp);
   buildDensityEditor(gp,cfg.spawnDensity,cfg.appearanceByBand);
 }
 function markDirty(){

@@ -16,7 +16,7 @@
    ============================================================ */
 import {
   WORLD_W, ANCHOR_X, LAYERS, LAYER_DEPTH, CATCH_RADIUS, BP,
-  SHARK_CONTACT_DIST, SEG_M,
+  SHARK_CONTACT_DIST, SEG_M, BAND_EDGES, BAND_INFO,
   layerDepthY, bandOf, currentDisp, lineXAtDepth, depthMeters,
 } from './world.js';
 import {
@@ -84,20 +84,13 @@ let _seaFade=1;   // fish opacity for the cut→next-round cross-fade (set per-f
 
 /* --- 4-band strata (v2.1): SHALLOWS cyan → REEF sea-green → DEEPER blue →
    ABYSS violet-black. Gradient per band, faint per-segment ticks. --- */
-const BAND_EDGES = [0, 3, 9, 18, LAYERS+0.5];     // in segments (3/6/9/12)
 function bandStrata(L){
-  if(L<=3)  return ['#0F4D5C','#0C3E4B','#0A303B'];   // SHALLOWS
-  if(L<=9)  return ['#0C3540','#0A2A33','#092228'];   // REEF
-  if(L<=18) return ['#0A1C2C','#091524','#0A101E'];   // DEEPER (blue-dark)
-  return           ['#0C0D1E','#0B0917','#0E0A18'];   // ABYSS (violet-black)
+  const band=bandOf(L);
+  if(band==='SHALLOWS') return ['#0F4D5C','#0C3E4B','#0A303B'];
+  if(band==='REEF')     return ['#0C3540','#0A2A33','#092228'];
+  if(band==='DEEPER')   return ['#0A1C2C','#091524','#0A101E'];
+  return                       ['#0C0D1E','#0B0917','#0E0A18'];
 }
-const BAND_INFO = [
-  { name:'SHALLOWS', range:'0 – 50m',    L:1,  col:'#6FE3E1' },
-  { name:'REEF',     range:'50 – 200m',  L:4,  col:'#45B89A' },
-  { name:'DEEPER',   range:'200 – 500m', L:10, col:'#5B8FC7' },
-  { name:'ABYSS',    range:'500m+',      L:19, col:'#8A5CC2' },
-];
-
 // current streaks (decorative volume)
 const STREAKS = Array.from({length:64}, ()=>({
   depth: Math.random()*(LAYERS*LAYER_DEPTH+300),
@@ -337,7 +330,8 @@ export function draw(engine, hookDepth, T, cam, shake, fx, ambient, zoom){
     ctx.fillStyle=bg; ctx.fillRect(-PANM,0,W+PANM*2,H);
   } else {
     for(let b=0;b<BAND_EDGES.length-1;b++){
-      const yTop=worldY(BAND_EDGES[b]*LAYER_DEPTH)-cam, yBot=worldY(BAND_EDGES[b+1]*LAYER_DEPTH)-cam;
+      const edgeBot=BAND_EDGES[b+1]+(b===BAND_EDGES.length-2?0.5:0);
+      const yTop=worldY(BAND_EDGES[b]*LAYER_DEPTH)-cam, yBot=worldY(edgeBot*LAYER_DEPTH)-cam;
       if(yBot<-4||yTop>H+4) continue;
       const s=bandStrata(BAND_EDGES[b]+1);
       const g=ctx.createLinearGradient(0,Math.max(yTop,-200),0,Math.min(yBot,H+200));

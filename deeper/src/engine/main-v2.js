@@ -29,9 +29,9 @@ import {
 } from './saved-config.js';
 
 const $ = s => document.querySelector(s);
-const BET_STEPS = [10,25,50,100,250];    // v2.1 §8.8 — IDLE-only bet ladder
+const BET_STEPS = [1,5,10,50,100,200,300,500,1000];    // IDLE-only bet ladder
 const easeOut = p => 1-Math.pow(1-p,3);
-const MAXDEPTH = layerDepthY(LAYERS);
+const maxDepth = () => layerDepthY(LAYERS);
 // hao 2026-07-19: the PULL ends OUT OF THE WATER — the hook flies well past
 // the waterline and hangs in the air while the catch cashes into coins
 const BREACH_DEPTH = -132, REEL_SPACING = 30;
@@ -219,7 +219,7 @@ function advanceDepth(dt){
   if(V.engine.st.over){
     // round sealed. While a cut is charging, keep the hook FALLING at the player's
     // throttle (no pause) and roll no new segments — tickCut fires the snap.
-    if(V.cut){ V.hookDepth=Math.min(MAXDEPTH, V.hookDepth+V.vDepth*dt); return; }
+    if(V.cut){ V.hookDepth=Math.min(maxDepth(), V.hookDepth+V.vDepth*dt); return; }
     /* no charge yet → nothing caught the verdict (most commonly an L1 bite resolved
        at DROP, before any descent — createRound enters L1 at once). Arm it now,
        still without pausing; keep the hook moving. */
@@ -227,15 +227,15 @@ function advanceDepth(dt){
       // dev: hold the forced cut until SHARK_TEST_L (L1 bit at DROP → keep sinking)
       if(V.sharkForce==='bite' && V.engine.st.L < SHARK_TEST_L){
         devNeutralizeBite(V.engine.st);
-        V.hookDepth=Math.min(MAXDEPTH, V.hookDepth+V.vDepth*dt); return;
+        V.hookDepth=Math.min(maxDepth(), V.hookDepth+V.vDepth*dt); return;
       }
       const cs=V.engine.st.contacts, c=cs.length?cs[cs.length-1]:null;
-      if(c && c.hit && !V.beastEvery){ armCut(c); V.hookDepth=Math.min(MAXDEPTH, V.hookDepth+V.vDepth*dt); }
+      if(c && c.hit && !V.beastEvery){ armCut(c); V.hookDepth=Math.min(maxDepth(), V.hookDepth+V.vDepth*dt); }
       else endInCut();
     }
     return;
   }
-  V.hookDepth = Math.min(MAXDEPTH, V.hookDepth + V.vDepth*dt);
+  V.hookDepth = Math.min(maxDepth(), V.hookDepth + V.vDepth*dt);
   while(V.engine.canSink() && V.hookDepth >= layerDepthY(V.engine.st.L+1)){
     V.engine.sink(V.T);
     if(V.beastEvery && V.engine.st.over){        // dev: beastEvery demo 免鯊魚——清掉下沉的鯊魚咬,直達巨獸深度純看演出
@@ -306,7 +306,7 @@ function computeDanger(){
     const d=Math.abs(sharkX(sh,V.T) - lineXAtDepth(sh.depth,V.T,V.hookDepth,st.C,st.steerX));
     near=Math.max(near, Math.max(0, 1 - d/(SHARK_CONTACT_DIST*3.2)));
   }
-  const depthK=Math.min(1, V.hookDepth/MAXDEPTH);
+  const depthK=Math.min(1, V.hookDepth/maxDepth());
   const base=Math.min(1, near*(0.5+0.5*depthK));
   // ANY charge strains the rope identically (you don't yet know hit or miss — the
   // suspense IS the tension). A hit ends in the snap; a miss lets it relax.
@@ -470,7 +470,7 @@ function loop(dt){
   if(V.state==='PAYOUT'||V.state==='SNAP') V.resultT+=dt;
   if(V.state==='IDLE') V.idleClock+=dt;
   advanceAtmosphere(dt);
-  A.setWorld(V.hookDepth/MAXDEPTH, V.throttle, V.state!=='IDLE');
+  A.setWorld(V.hookDepth/maxDepth(), V.throttle, V.state!=='IDLE');
   // the dread is CONTINUOUS: how close the nearest shark is, weighted by depth
   V.danger += (computeDanger()-V.danger)*Math.min(1,dt*4);
   A.setDanger(V.danger);
@@ -1333,6 +1333,13 @@ resize(); updateBal(); updateDock(); updateBetUI(false);
   const t=$('#unitTag'); if(t) t.textContent=unit().tag;
 }
 { const stage=$('#stage');
+  let lastTouchEnd=0;
+  stage.addEventListener('touchend', e=>{
+    const now=performance.now();
+    if(now-lastTouchEnd<320) e.preventDefault();
+    lastTouchEnd=now;
+  }, {passive:false});
+  stage.addEventListener('gesturestart', e=>e.preventDefault(), {passive:false});
   stage.addEventListener('pointerdown', e=>{ A.unlock();   // browsers only allow audio after a gesture
     const boot=$('#boot'); if(boot && !boot.classList.contains('gone')){ boot.classList.add('gone'); setTimeout(()=>boot.remove(),500); return; } onDown(e); });
   window.addEventListener('pointermove', onMove, {passive:true});
@@ -1367,16 +1374,16 @@ window.DEEPER_V2 = {
   // 只改執行期 CFG,build 時整段 tree-shake 不進出貨版）。'bite'=必咬斷、'miss'=必失手、
   // null=還原預設。與 beastEvery 互斥（beast 開時下沉會清掉鯊魚）。
   sharkEvery(mode){
-    if(!this._sharkOrig) this._sharkOrig={ s:CFG.sharkSpawnP, b:CFG.sharkBiteP };
+    if(!this._sharkOrig) this._sharkOrig={ enabled:CFG.sharkEnabled, s:CFG.sharkSpawnP, b:CFG.sharkBiteP };
     // 'bite' spawn=1、咬中率=1,但 advanceDepth 把 < SHARK_TEST_L 的咬先中和掉（devNeutralizeBite）→
     //   斷線演出穩定落在 SHARK_TEST_L(=L7 mid-REEF);L1 一 DROP 的咬也被中和,不會空咬。
-    // 'miss' spawn=1 每段都出鯊魚且必失手 → 看退場+獎品,還能一路下潛。
-    if(mode==='bite')      applyCfg({ sharkSpawnP:1, sharkBiteP:1 });
-    else if(mode==='miss') applyCfg({ sharkSpawnP:1, sharkBiteP:0 });
-    else { applyCfg({ sharkSpawnP:this._sharkOrig.s, sharkBiteP:this._sharkOrig.b }); mode=null; }
+    // 'miss' keeps the configured spawn rate but forces bite=0.
+    if(mode==='bite')      applyCfg({ sharkEnabled:true, sharkSpawnP:1, sharkBiteP:1 });
+    else if(mode==='miss') applyCfg({ sharkEnabled:true, sharkSpawnP:this._sharkOrig.s, sharkBiteP:0 });
+    else { applyCfg({ sharkEnabled:this._sharkOrig.enabled, sharkSpawnP:this._sharkOrig.s, sharkBiteP:this._sharkOrig.b }); mode=null; }
     if(mode) V.beastEvery=null;                         // 互斥:開鯊魚就關巨獸
     V.sharkForce=mode;
-    return '每段強制鯊魚 → '+(mode==='bite'?'必咬斷(看斷線演出)':mode==='miss'?'必失手(看退場+獎品,可一路下潛)':'OFF(還原 1/8×20%)'); },
+    return '鯊魚測試 → '+(mode==='bite'?'必咬斷(看斷線演出)':mode==='miss'?'照原出現率,必不咬斷':'OFF(還原原設定)'); },
   hookInfo(){ const st=V.engine&&V.engine.st; return { state:V.state, T:+V.T.toFixed(2), L:st?st.L:0, hookDepth:+V.hookDepth.toFixed(1), vDepth:+V.vDepth.toFixed(1), throttle:+V.throttle.toFixed(2), steerX:+V.steerX.toFixed(1), down:+V.downMeter.toFixed(2), pull:+V.pullMeter.toFixed(2), pot:st?+(st.potBp/BP).toFixed(2):0 }; },
 };
 
@@ -1391,7 +1398,12 @@ if(SHOW_DEMO_PANEL){
     background:rgba(6,15,24,.82);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
     border:1px solid rgba(246,194,67,.26);border-radius:9px;padding:7px;box-shadow:0 5px 18px rgba(0,0,0,.45)}
   #beastDev .hd{display:flex;align-items:center;justify-content:space-between;
-    font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-hi,#FBE7A8);margin-bottom:2px}
+    font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-hi,#FBE7A8);margin-bottom:2px;cursor:pointer}
+  #beastDev:not(.open){width:auto;min-width:86px;padding:6px 7px}
+  #beastDev:not(.open) .row,#beastDev:not(.open) .lbl{display:none}
+  #beastDev:not(.open) .hd{margin-bottom:0}
+  #beastDev .hd span:first-child::after{content:' ▾';opacity:.72}
+  #beastDev.open .hd span:first-child::after{content:' ▴'}
   #beastDev .hd .dot{width:6px;height:6px;border-radius:50%;background:#38474f;transition:.25s}
   #beastDev.on .hd .dot{background:var(--gold-mid,#F6C243);box-shadow:0 0 7px var(--gold-mid,#F6C243)}
   #beastDev .row{display:flex;gap:4px;margin-top:5px}
@@ -1414,6 +1426,7 @@ if(SHOW_DEMO_PANEL){
     '<div class="lbl">Shark 每段強制</div>'+
     '<div class="row"><button class="shk" data-shark="bite">必咬斷</button><button class="shk" data-shark="miss">必失手</button><button class="off" data-shark-off>OFF</button></div>';
   (document.getElementById('stage')||document.body).appendChild(p);
+  p.querySelector('.hd').addEventListener('click', e=>{ e.stopPropagation(); p.classList.toggle('open'); });
   let esc=false, actM=null, shk=null;
   const tierBtns=[...p.querySelectorAll('button[data-m]')], escBtn=p.querySelector('[data-esc]');
   const shkBtns=[...p.querySelectorAll('button[data-shark]')];

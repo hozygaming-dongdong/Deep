@@ -5,10 +5,12 @@ export const SAVED_CFG_KEY='deeper:tuner:saved-config:v1';
 export const SAVED_CFG_CHANNEL='deeper:tuner:config:v1';
 
 const ENGINE_CFG_KEYS=[
+  'depthBands',
   'poolExact','poolRange','antePool',
   'beastShowRules',
   'goldFishTeaseP','noGoldFishTeaseP','teaseToGreatWhiteP','greatWhiteToMosasaurP',
   'anteAmt','anteFrom',
+  'sharkEnabled',
   'sharkSpawnP','sharkBiteP','sharkPrizeMin','sharkPrizeMax',
   'spawnDensity','appearanceByBand','fishAppearance','bubbleAppearance',
 ];

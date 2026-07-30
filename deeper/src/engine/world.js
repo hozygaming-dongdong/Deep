@@ -28,12 +28,64 @@ export const SURFACE_Y = 0;
    SHALLOWS 0–50m (3) / REEF 50–200m (4) / DEEPER 200–500m (5) / ABYSS
    500–1500m+ (6). World-px per segment stays uniform: the metric ruler is
    the narrative skin over a regular decision grid. */
-export const LAYERS = 30;                // v2.1c: 3/6/9/12 per band — deeper world
+export const BANDS = ['SHALLOWS','REEF','DEEPER','ABYSS'];
+const DEFAULT_DEPTH_BANDS = { SHALLOWS:3, REEF:6, DEEPER:9, ABYSS:12 };
+const DEFAULT_SEG_M = [0, 10,25,50, 75,95,120,145,170,200, 230,260,295,330,365,400,435,465,500,
+                       560,620,690,760,840,920,1010,1100,1200,1300,1400,1500];
+const BAND_METER_RANGE = {
+  SHALLOWS:[0,50], REEF:[50,200], DEEPER:[200,500], ABYSS:[500,1500],
+};
+export let LAYERS = 30;                  // default: 3/6/9/12 per band
 export const LAYER_DEPTH = 96;           // world-units of depth between ledges
-export const SEG_M = [0, 10,25,50, 75,95,120,145,170,200, 230,260,295,330,365,400,435,465,500,
-                      560,620,690,760,840,920,1010,1100,1200,1300,1400,1500];
+export let SEG_M = DEFAULT_SEG_M.slice();
+export let DEPTH_BANDS = {...DEFAULT_DEPTH_BANDS};
+export let BAND_ENDS = { SHALLOWS:3, REEF:9, DEEPER:18, ABYSS:30 };
+export let BAND_EDGES = [0, 3, 9, 18, 30];
+export let BAND_INFO = [
+  { name:'SHALLOWS', range:'0-50m',    L:1,  col:'#6FE3E1', segments:3 },
+  { name:'REEF',     range:'50-200m',  L:4,  col:'#45B89A', segments:6 },
+  { name:'DEEPER',   range:'200-500m', L:10, col:'#5B8FC7', segments:9 },
+  { name:'ABYSS',    range:'500m+',    L:19, col:'#8A5CC2', segments:12 },
+];
+function normaliseDepthBands(raw){
+  const out={};
+  for(const b of BANDS){
+    const n=Math.round(+raw?.[b]);
+    out[b]=Math.max(1,Math.min(60,Number.isFinite(n)?n:DEFAULT_DEPTH_BANDS[b]));
+  }
+  return out;
+}
+function buildSegMeters(depthBands){
+  if(BANDS.every(b=>depthBands[b]===DEFAULT_DEPTH_BANDS[b])) return DEFAULT_SEG_M.slice();
+  const meters=[0];
+  for(const b of BANDS){
+    const [from,to]=BAND_METER_RANGE[b], n=depthBands[b];
+    for(let i=1;i<=n;i++) meters.push(Math.round(from+(to-from)*(i/n)));
+  }
+  return meters;
+}
+function rebuildDepthStructure(){
+  DEPTH_BANDS=normaliseDepthBands(CFG?.depthBands);
+  BAND_EDGES=[0];
+  BAND_ENDS={};
+  let total=0;
+  for(const b of BANDS){ total+=DEPTH_BANDS[b]; BAND_ENDS[b]=total; BAND_EDGES.push(total); }
+  LAYERS=total;
+  SEG_M=buildSegMeters(DEPTH_BANDS);
+  BAND_INFO=BANDS.map((name,i)=>{
+    const start=BAND_EDGES[i], end=BAND_EDGES[i+1], [m0,m1]=BAND_METER_RANGE[name];
+    const range=name==='ABYSS' ? `${m0}m+` : `${m0}-${m1}m`;
+    return { name, range, L:start+1, col:['#6FE3E1','#45B89A','#5B8FC7','#8A5CC2'][i], segments:end-start };
+  });
+  CFG.depthBands={...DEPTH_BANDS};
+}
 export function layerDepthY(L){ return SURFACE_Y + L*LAYER_DEPTH; }
-export function bandOf(L){ return L<=3 ? 'SHALLOWS' : L<=9 ? 'REEF' : L<=18 ? 'DEEPER' : 'ABYSS'; }
+export function bandOf(L){
+  if(L<=BAND_ENDS.SHALLOWS) return 'SHALLOWS';
+  if(L<=BAND_ENDS.REEF) return 'REEF';
+  if(L<=BAND_ENDS.DEEPER) return 'DEEPER';
+  return 'ABYSS';
+}
 // world depth (px) → display meters, piecewise-linear across segment bounds
 export function depthMeters(px){
   const seg = Math.max(0, Math.min(LAYERS-1e-9, px/LAYER_DEPTH));
@@ -213,6 +265,7 @@ export const PULL_WINDUP = 0.65;
 
    Exact frozen values and 200k evidence live in docs/ECONOMY-V2.md §0″. */
 export const CFG = {
+  depthBands: { SHALLOWS:3, REEF:6, DEEPER:9, ABYSS:12 },
   /* v2.12 generic opening distribution. Rows describe only a sealed multiplier
      result; they do not name or select any fish/beast presentation. */
   poolExact: [
@@ -255,6 +308,7 @@ export const CFG = {
   ],
   anteAmt:   0.25,        // ×stake charged every segment from REEF down
   anteFrom:  'REEF',      // first band that antes (SHALLOWS is the free look)
+  sharkEnabled: true,     // SINK hazard master switch
   sharkSpawnP: 1/8,       // shark appears per segment (EVERY segment)
   sharkBiteP:  0.20,      // of appearances → line cut (forced early pull)
   /* A shark that misses becomes one fast WYSIWYG PRIZE fish. The existing first
@@ -361,7 +415,6 @@ export let GOLD_FISH_TEASE_P, NO_GOLD_FISH_TEASE_P, TEASE_TO_GREAT_WHITE_P, GREA
 export let ANTE_AMT, ANTE_P, SHARK_SPAWN_P, SHARK_BITE_P, SHARK_PRIZE_MIN, SHARK_PRIZE_MAX;
 export let POOL_TABLE, POOL_P, POOL_RTP, ANTE_EV;
 let ANTE_TABLE;
-const BANDS = ['SHALLOWS','REEF','DEEPER','ABYSS'];
 export const rangeMeanMult = b => ((+b.min||0) + (+b.max||0)) / 2;
 export function fishAppearanceForBand(band){
   const rows=CFG.appearanceByBand?.[band]?.fish;
@@ -373,6 +426,7 @@ export function bubbleAppearanceForBand(band){
 }
 
 export function rebuildCfg(){
+  rebuildDepthStructure();
   // POOL_TABLE is presentation-agnostic: exact rows followed by uniform ranges.
   POOL_TABLE = [
     ...CFG.poolExact.map(r => ({ mult:+r.mult||0, p:+r.p||0 })),
@@ -416,8 +470,9 @@ export function rebuildCfg(){
   ANTE_P = { SHALLOWS:0, REEF:0, DEEPER:0, ABYSS:0 };
   BANDS.forEach((b,i)=>{ if(i>=from && from>=0) ANTE_P[b]=1; });
   const spawnP=+CFG.sharkSpawnP, biteP=+CFG.sharkBiteP;
-  SHARK_SPAWN_P = Math.max(0,Math.min(1,Number.isFinite(spawnP)?spawnP:1/8));
-  SHARK_BITE_P  = Math.max(0,Math.min(1,Number.isFinite(biteP)?biteP:0.20));
+  const sharkOn=CFG.sharkEnabled!==false;
+  SHARK_SPAWN_P = sharkOn ? Math.max(0,Math.min(1,Number.isFinite(spawnP)?spawnP:1/8)) : 0;
+  SHARK_BITE_P  = sharkOn ? Math.max(0,Math.min(1,Number.isFinite(biteP)?biteP:0.20)) : 0;
   const prizeMin=+CFG.sharkPrizeMin, prizeMax=+CFG.sharkPrizeMax;
   SHARK_PRIZE_MIN=Math.max(0.1,Number.isFinite(prizeMin)?prizeMin:3);
   SHARK_PRIZE_MAX=Math.max(SHARK_PRIZE_MIN,Number.isFinite(prizeMax)?prizeMax:10);
