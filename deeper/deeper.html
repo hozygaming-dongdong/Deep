@@ -3,6 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<script>
+(() => {
+  if (window.__DEEPER_ZOOM_GUARD__) return;
+  window.__DEEPER_ZOOM_GUARD__ = true;
+  let lastTouchStart = 0;
+  let lastTouchEnd = 0;
+  const TAP_WINDOW = 420;
+  const opts = { capture: true, passive: false };
+  const stop = e => e.preventDefault();
+  const multiTouch = e => e.touches && e.touches.length > 1;
+
+  document.addEventListener('touchstart', e => {
+    const now = Date.now();
+    if (multiTouch(e) || now - lastTouchStart < TAP_WINDOW) e.preventDefault();
+    lastTouchStart = now;
+  }, opts);
+  document.addEventListener('touchmove', e => {
+    if (multiTouch(e)) e.preventDefault();
+  }, opts);
+  document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTouchEnd < TAP_WINDOW) e.preventDefault();
+    lastTouchEnd = now;
+  }, opts);
+  document.addEventListener('dblclick', stop, opts);
+  document.addEventListener('click', e => {
+    if (e.detail > 1) e.preventDefault();
+  }, opts);
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(type => {
+    document.addEventListener(type, stop, opts);
+  });
+})();
+</script>
 <title>DEEPER v2 — physics preview</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,13 +50,13 @@
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0}
   html,body{height:100%; background:var(--abyss-0); overflow:hidden; font-family:var(--font-ui); color:var(--bone);
-    touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none}
+    touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none}
   body{display:flex; align-items:center; justify-content:center;
     background:radial-gradient(120% 90% at 50% 42%, rgba(13,53,64,.18), rgba(4,7,10,0) 55%), linear-gradient(180deg,#071118,#04070A 40%,#050409)}
   #stage{position:relative; width:100vw; height:100vh; max-width:calc(100vh*0.5625); background:var(--abyss-0); overflow:hidden; touch-action:none;
     box-shadow:0 0 0 1px rgba(19,32,42,.9), 0 0 80px rgba(0,0,0,.55)}
   canvas{position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none}
-  #boot,.bal,#betTile,.btn{touch-action:manipulation}
+  #boot,.bal,#betTile,.btn{touch-action:none}
 
   /* v2.2 — the top bar carries ONE thing: what you have. The version badge and
      the sfx chip were dev chrome sitting where the player's eye lands. */
