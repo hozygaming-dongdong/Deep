@@ -372,7 +372,7 @@ export function createRound(seedStr, atT0, carryInBp){
       st.roundPayBp = st.baseBp;
       st.payoutBp   = st.roundPayBp;
       st.carryOutBp = Math.max(0, st.carryInBp + st.ordinaryPoolBp - st.baseBp);
-      st.beastShowBudgetBp=st.payoutBp+st.carryOutBp;
+      st.beastShowBudgetBp=st.payoutBp;
       const budgetMult=st.beastShowBudgetBp/BP;
       /* Forced beast show (multiplier ladder) always has priority and can never
          break. If it selects any beast, skip the entire separate PULL event

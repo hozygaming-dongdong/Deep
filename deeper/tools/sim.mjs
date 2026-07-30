@@ -259,7 +259,7 @@ console.log('=== 3. PAYOUT LAW (v2.12) — payout ≤ pool; beast show changes n
     const isQualified=r.payoutBp>0 && beastShowTier(budgetMult)>=0;
     if(isQualified) qualified++;
     if(!r.sharkCut && !(r.beastShowRoll>=0 && r.beastShowRoll<1)) badShow++;
-    if(!r.sharkCut && r.beastShowBudgetBp!==r.payoutBp+r.carryOutBp) badShow++;
+    if(!r.sharkCut && r.beastShowBudgetBp!==r.payoutBp) badShow++;
     if(r.whaleTriggered){
       shows++;
       if(expectedTier<0 || r.whaleEscaped!==decision.lineBroken
