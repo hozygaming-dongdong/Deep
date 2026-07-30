@@ -17,7 +17,7 @@
    ============================================================ */
 import { createRound } from './round.js';
 import { LAYERS, LAYER_DEPTH, WORLD_W, layerDepthY, bandOf, BP, REEL_SPEED, PULL_WINDUP,
-         ANCHOR_X, lineXAtDepth, SHARK_CONTACT_DIST, ANTE_AMT, CFG, applyCfg } from './world.js';
+         ANCHOR_X, lineXAtDepth, SHARK_CONTACT_DIST, ANTE_AMT, ANTE_P, CFG, applyCfg } from './world.js';
 import {
   bubbleX, bubbleProjectedX, bubblePopRadius, bubbleWorldXAtScreen,
   fishX, fishY, fishProjectedX, fishCatchRadius, fishWorldXAtScreen, makeScatter, sharkX,
@@ -146,6 +146,7 @@ function armForcedBeastGold(st){
 /* ---------- transitions ---------- */
 function engageSink(dy){
   if(V.state==='IDLE'){
+    if(V.balance<V.stake){ flashCost(); V.downMeter=0; return false; }
     applyPendingGameConfig();   // saved while the previous round was active
     V.balance -= V.stake; V.committed=V.stake; updateBal(); updateBetUI(true); V.seedN++; V.T=0;
     V.engine = createRound('deeperv2live:'+V.seedN, 0, V.carryBp); V.engine.steer(V.steerX||0);   // v2.5 roll the bank in
@@ -155,6 +156,7 @@ function engageSink(dy){
   }
   // engage reference = the clutch threshold, so holding just PAST it already applies throttle
   V.engaged=true; V.throttle=0; V.drag.engageDy=ENGAGE_PX; V.drag.deepest=Math.max(dy,ENGAGE_PX); setState('SINK');
+  return true;
 }
 function disengage(){ V.engaged=false; V.throttle=0; if(V.state==='SINK') setState('HOLD'); }
 function doPull(){
@@ -262,6 +264,11 @@ function advanceDepth(dt){
   }
   V.hookDepth = Math.min(maxDepth(), V.hookDepth + V.vDepth*dt);
   while(V.engine.canSink() && V.hookDepth >= layerDepthY(V.engine.st.L+1)){
+    const nextL=V.engine.st.L+1;
+    if(V.balance<nextSegmentAnteCost(nextL)){
+      blockSinkForFunds(nextL);
+      break;
+    }
     V.engine.sink(V.T);
     if(V.beastEvery && V.engine.st.over){        // dev: beastEvery demo 免鯊魚——清掉下沉的鯊魚咬,直達巨獸深度純看演出
       V.engine.st.over=false; V.engine.st.snapped=false; V.engine.st.sharkCut=false;
@@ -442,6 +449,17 @@ function tickCard(dt){
 function cardDone(){ return !V.card || (V.card.shown && V.card.t>CARD_IN+CARD_HOLD); }
 
 function flashCost(){ const b=$('#bal'); if(!b) return; b.classList.remove('charged'); void b.offsetWidth; b.classList.add('charged'); }
+function nextSegmentAnteCost(nextL){
+  const p=ANTE_P?.[bandOf(nextL)]||0;
+  return p>0 ? toCredits(ANTE_AMT*V.stake) : 0;
+}
+function blockSinkForFunds(nextL){
+  const boundary=layerDepthY(nextL);
+  V.hookDepth=Math.min(V.hookDepth, Math.max(0,boundary-0.5));
+  V.vDepth=0; V.throttle=0; V.engaged=false; V.downMeter=0;
+  setState('HOLD');
+  flashCost();
+}
 
 /* ---------- pointer handlers ---------- */
 function onDown(e){
