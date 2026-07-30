@@ -1377,11 +1377,24 @@ function drawPops(pops, cam){
       const s=(3.4-grow*2.4)*(i%2?1:1.5);
       ctx.fillRect(sx2-s/2, sy2-s/2, s, s);
     }
-    // the mult value hangs on the burst, then DIVES onto its fish (smoothstep)
+    // the mult value hangs on the burst, then the energy runs along the line.
     if(p.toX!=null){
       const k=Math.max(0,Math.min(1,(p.t-0.18)/0.44));   // linger first, then fly
       const tt=k*k*(3-2*k);
       const fx=p.x+(p.toX-p.x)*tt, fy=y+(p.toY-cam-y)*tt;
+      if(k>0){
+        const tx=p.toX, ty=p.toY-cam;
+        const head=tt, tail=Math.max(0,head-0.22);
+        const hx=p.x+(tx-p.x)*head, hy=y+(ty-y)*head;
+        const tx2=p.x+(tx-p.x)*tail, ty2=y+(ty-y)*tail;
+        ctx.save();
+        ctx.globalAlpha=(1-k)*0.48+0.22;
+        ctx.strokeStyle=p.col; ctx.lineWidth=2.8; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(tx2,ty2); ctx.lineTo(hx,hy); ctx.stroke();
+        ctx.globalAlpha=(1-k)*0.8;
+        ctx.fillStyle='#FFFFFF'; ctx.beginPath(); ctx.arc(hx,hy,3.5+2.5*(1-k),0,7); ctx.fill();
+        ctx.restore();
+      }
       const pop=1+0.5*Math.max(0,1-p.t*2.4);             // birth scale-pop
       setDisplay(Math.round(20*pop),900); ctx.textAlign='center';
       ctx.globalAlpha=Math.min(1,a+0.3);
@@ -1715,8 +1728,13 @@ function drawFish(f,T,C,cam,hookDepth,ambient,sx,reelPath=null){
     const col = isScatter ? '#F6C243' : (boosted?'#FBE7A8':warm?'#F6C243':inZone?'#9DF0EE':'#6FE3E1');
     // WYSIWYG: use the exact same basis-point rounding as round.js settlement.
     const shownBp=Math.round(f.score*BP*applied);
-    const label = isScatter ? '★' : fmtU(shownBp/BP*U.stake);
-    const basePx = isScatter?14:(boosted?22:f.arch==='giant'?20:f.arch==='large'?17:15);
+    const exprT=f._boostExprT||0;
+    const boostMult=+f._boostMult||1;
+    const baseBp=Math.max(0,Math.round(+f._boostBaseBp||f.score*BP));
+    const multLabel=boostMult>=10 ? boostMult.toFixed(0) : boostMult.toFixed(2);
+    const exprLabel=fmtU(baseBp/BP*U.stake)+' ×'+multLabel;
+    const label = isScatter ? '★' : (exprT>0 ? exprLabel : fmtU(shownBp/BP*U.stake));
+    const basePx = isScatter?14:(exprT>0?16:boosted?22:f.arch==='giant'?20:f.arch==='large'?17:15);
     setDisplay(Math.round(basePx*(1+bf*0.55)),900);      // the new value BOUNCES in
     ctx.globalAlpha=Math.min(1,fade+0.2);
     const ty=y-sz*0.7-8;

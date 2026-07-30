@@ -613,11 +613,17 @@ function loop(dt){
       const was=p.t; p.t+=dt*1.25;                       // slower life = the ×N stays readable
       if(p.fishF && was<0.62 && p.t>=0.62){              // the mult SLAMS onto its fish
         p.fishF._boostFlash=1; V.shake=Math.max(V.shake,3.6);
+        p.fishF._boostExprT=0.72;
+        p.fishF._boostBaseBp=Math.round((+p.fishF.score||0)*BP);
+        p.fishF._boostMult=+p.mult||1;
       }
     }
     V.fx.pops=V.fx.pops.filter(p=>p.t<1);
   }
-  if(V.engine){ for(const f of V.engine.st.caught) if(f._boostFlash) f._boostFlash=Math.max(0,f._boostFlash-dt*1.9); }
+  if(V.engine){ for(const f of V.engine.st.caught){
+    if(f._boostFlash) f._boostFlash=Math.max(0,f._boostFlash-dt*1.9);
+    if(f._boostExprT) f._boostExprT=Math.max(0,f._boostExprT-dt);
+  } }
   if(V.fx.coins && V.fx.coins.length) tickCoins(dt);
   if(V.fx.blood && V.fx.blood.length){                    // 咬合噴血：粒子受水阻快速減速+微沉+擴散
     for(const b of V.fx.blood){ b.t+=dt;
@@ -860,6 +866,7 @@ function tickReel(dt){
         const tf=b.fishRef;
         V.fx.pops.push({ x:bx, y:LAYOUT.surfaceY+b.depth, r0:st2.r, col:st2.col, t:0, fishF:tf,
           seed:Math.random()*6.283,
+          mult:b.mult,
           label:'×'+(b.mult>=10?b.mult.toFixed(0):b.mult.toFixed(2)),
           toX: tf? ANCHOR_X+Math.sin((tf._order||0)*2.1)*16 : null,
           toY: tf? LAYOUT.surfaceY+(tf._reelDepth||V.hookDepth) : null });
