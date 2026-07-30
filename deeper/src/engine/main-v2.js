@@ -925,9 +925,9 @@ function tickReel(dt){
 const BUBBLE_FX=[{col:'#6FE3E1',r:15},{col:'#39C6B5',r:19},{col:'#5B8FC7',r:24},{col:'#C8922E',r:31},{col:'#F6C243',r:41}];
 
 /* ---------- BEAST SHOW ------------------------------------------------
-   v2.11: the amount is already sealed and will be paid exactly. Crossing the
-   configurable result threshold selects this show; the animal never changes
-   RTP or discounts the win. The existing sequence remains the drama:
+   v2.28: caught value plus carry is already sealed. Crossing a configurable
+   threshold selects this show; a held beast visibly releases the residual
+   carry without changing RTP, while a break leaves it banked. The sequence:
    BURST — it erupts from the sea floor, head-up, jaws open
    SWALLOW — the whole strung catch vanishes into its mouth
    BITE — it clamps the hook; the line snaps TAUT

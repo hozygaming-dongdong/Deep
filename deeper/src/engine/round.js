@@ -52,10 +52,11 @@
                       unaffordable event branch may break visually, never money.
    ────────────────────────────────────────────────────────────
 
-   Payout (v2.12 sealed-pool law + independent presentation):
+   Payout (v2.28 sealed-pool law + carry-funded beast collection):
      ordinary = exact Σ(caught fish visible value × caught bubble mult), never
                 above anonymous opening result + independent 97% ante rows
-     beast    = pure show selected from the final paid multiple; changes no money
+     beast    = eligible from caught value + carry; a held beast visibly collects
+                the residual carry, while a miss/break leaves it banked
      shark    = pool-independent LINE CUT show; all unpaid value becomes safe carry
    ============================================================ */
 import { xfnv1a, mulberry32 } from '../econ/rng.js';
@@ -363,16 +364,16 @@ export function createRound(seedStr, atT0, carryInBp){
          to hold down is re-absorbed by the depth-scaled bite below.) */
       // catch — solve the arrangement + base lane at this depth (pure, no rng)
       settleBase(st, rng, startDepth);
-      /* ---------- BEAST SHOW: presentation selected after settlement ----------
+      /* ---------- BEAST SHOW: carry-funded visible collection ----------------
          One roll is still consumed unconditionally so the seeded stream shape
-         remains stable. Carry can fund visible fish/bubbles, but it never pays
-         directly without a visible catch. */
+         remains stable. Carry helps qualify the tier, but only leaves the bank
+         when a held beast gives that residual value a visible payout event. */
       const beastU = rng();
       st.beastShowRoll=beastU;
       st.roundPayBp = st.baseBp;
       st.payoutBp   = st.roundPayBp;
       st.carryOutBp = Math.max(0, st.carryInBp + st.ordinaryPoolBp - st.baseBp);
-      st.beastShowBudgetBp=st.payoutBp;
+      st.beastShowBudgetBp=st.payoutBp+st.carryOutBp;
       const budgetMult=st.beastShowBudgetBp/BP;
       /* Forced beast show (multiplier ladder) always has priority and can never
          break. If it selects any beast, skip the entire separate PULL event
@@ -399,6 +400,11 @@ export function createRound(seedStr, atT0, carryInBp){
         }
       }
       if(decision.tier>=0){
+        if(!decision.lineBroken){
+          st.whaleBp=st.carryOutBp;
+          st.payoutBp+=st.whaleBp;
+          st.carryOutBp=0;
+        }
         st.whaleTriggered=true; st.whaleTease=true;
         st.beastLineBroken=decision.lineBroken;
         st.beastBudgetBreak=!!decision.eventChain && decision.lineBroken;

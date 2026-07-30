@@ -242,24 +242,28 @@ console.log('=== 2b. Fish/bubble spawn weights are independent; caught labels pa
      caughtThird.every(x=>x>0), 'seen='+caughtThird.join('/'));
 }
 
-/* ---------- 3. PAYOUT LAW — sealed pool; presentation cannot rewrite it --- */
-console.log('=== 3. PAYOUT LAW (v2.12) — payout ≤ pool; beast show changes no money ===');
+/* ---------- 3. PAYOUT LAW — sealed pool; held beast visibly collects carry --- */
+console.log('=== 3. PAYOUT LAW (v2.28) — payout + carry stays sealed; held beast collects carry ===');
 {
   let badBase=0, badPool=0, badSum=0, badShow=0, shows=0, qualified=0, wins=0, n=0, maxBase=0, maxTotal=0, anteRounds=0;
   let anteHitTotal=0, poolTotal=0, spendTotal=0, segTotal=0, openTotal=0;
   for(let i=0;i<ROUNDS;i++){
     const r=simRound(seedOf(i), fixedStop(20)); n++;
     if(r.baseBp<0 || r.baseBp>HARD_CAP) badBase++;
-    if(r.payoutBp > r.poolBp) badPool++;
+    if(r.payoutBp > r.poolBp+r.carryInBp) badPool++;
     if(r.poolBp === 0 && r.payoutBp !== 0) badPool++;
-    if(r.payoutBp !== r.baseBp || r.whaleBp!==0) badSum++;
+    if(r.payoutBp+r.carryOutBp !== r.poolBp+r.carryInBp) badSum++;
+    if(r.payoutBp !== r.baseBp+r.whaleBp) badSum++;
+    const heldBeast=r.whaleTriggered && !r.beastLineBroken;
+    if((r.whaleBp>0 && !heldBeast) || (heldBeast && r.carryOutBp!==0)
+       || (!heldBeast && r.whaleBp!==0)) badSum++;
     const budgetMult=r.beastShowBudgetBp/BP;
-    const decision=r.payoutBp>0 ? beastShowDecision(budgetMult,r.beastShowRoll) : {tier:-1,lineBroken:false};
+    const decision=r.baseBp>0 ? beastShowDecision(budgetMult,r.beastShowRoll) : {tier:-1,lineBroken:false};
     const expectedTier=decision.tier;
-    const isQualified=r.payoutBp>0 && beastShowTier(budgetMult)>=0;
+    const isQualified=r.baseBp>0 && beastShowTier(budgetMult)>=0;
     if(isQualified) qualified++;
     if(!r.sharkCut && !(r.beastShowRoll>=0 && r.beastShowRoll<1)) badShow++;
-    if(!r.sharkCut && r.beastShowBudgetBp!==r.payoutBp) badShow++;
+    if(!r.sharkCut && r.beastShowBudgetBp!==r.payoutBp+r.carryOutBp) badShow++;
     if(r.whaleTriggered){
       shows++;
       if(expectedTier<0 || r.whaleEscaped!==decision.lineBroken
@@ -277,11 +281,11 @@ console.log('=== 3. PAYOUT LAW (v2.12) — payout ≤ pool; beast show changes n
   }
   ok('base lane in [0, ×500]', badBase===0, 'violations='+badBase);
   ok('THE POOL IS A CEILING (payout ≤ pool; ×0 pays nothing)', badPool===0, 'violations='+badPool);
-  ok('beast show walks high→low budget rules and changes no money',
+  ok('beast show walks high→low budget rules and a held beast consumes carry',
      badShow===0 && badSum===0,
      'violations='+badShow+' · qualified='+qualified+' · shows='+shows
      +' · show/qualified='+(qualified?shows/qualified*100:0).toFixed(1)+'%');
-  ok('total payout is the caught/carry result; economic beast lane is zero', badSum===0);
+  ok('payout + carry remains sealed; beast value is visible carry collection', badSum===0);
   /* v2.4 ── THE ANTE IS A BET, NOT A TAX ────────────────────────────────
      The v2.3 form checked E[pool] = 96% of spend, but that broke once the
      opening draw could land a beast mult (pool inflates to ~142% pre-shark).

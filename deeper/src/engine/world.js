@@ -283,9 +283,10 @@ export const CFG = {
     { p:0.00090, min:10, max:17 },
     { p:0.00042, min:30, max:60 },
   ],
-  /* Pure presentation ladder. The one existing post-PULL show roll evaluates
+  /* Carry-collection ladder. The one existing post-PULL show roll evaluates
      eligible tiers from LIVYATAN → MOSASAUR → GREAT WHITE. A missed higher tier
-     falls through to the next rule; no branch changes the paid amount. */
+     falls through to the next rule. A held beast releases residual carry but
+     never creates or discounts value outside the sealed pool. */
   beastShowRules: [
     { tier:0, min:10,  p:0.50 },
     { tier:1, min:30,  p:0.50 },
