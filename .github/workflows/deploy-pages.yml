@@ -47,6 +47,8 @@ jobs:
           touch pages/.nojekyll
 
       - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd pages
           git init -b gh-pages
