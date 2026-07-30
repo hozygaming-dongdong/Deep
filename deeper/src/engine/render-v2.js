@@ -742,18 +742,20 @@ function drawTease(tz, T, cam){
    ============================================================ */
 const bClamp=(v,a,b)=>Math.max(a,Math.min(b,v)), bLerp=(a,b,t)=>a+(b-a)*t;
 const bExpo=t=>Math.pow(bClamp(t,0,1),2.4), bEaseOut=t=>1-Math.pow(1-bClamp(t,0,1),3);
+const BEAST_ASSET_VERSION = 'beast-art-20260730';
+const beastAsset = file => `./beasts/${file}?v=${BEAST_ASSET_VERSION}`;
 const BEAST_POSE = {
-  gwCruise:{src:'./beasts/great-white-cruise.png',  iw:1536, ih:1024, mo:[.10,.52]},
-  gwBite:  {src:'./beasts/great-white-bite.png',    iw:1536, ih:1024, mo:[.05,.55]},
-  gwDrag:  {src:'./beasts/great-white-dragged.png', iw:1122, ih:1402, mo:[.50,.50]},
-  moBurst: {src:'./beasts/mosasaur-burst.png',      iw:1024, ih:1536, mo:[.56,.20]},
-  moClamp: {src:'./beasts/mosasaur-clamp.png',      iw:1024, ih:1536, mo:[.50,.16]},
-  lvOpen:  {src:'./beasts/livyatan-rise-open.png',  iw:1024, ih:1536, mo:[.50,.20]},
-  lvClosed:{src:'./beasts/livyatan-rise-closed.png',iw:1024, ih:1536, mo:[.50,.18]},
+  gwCruise:{src:beastAsset('great-white-cruise.png'),  iw:1536, ih:1024, mo:[.10,.52]},
+  gwBite:  {src:beastAsset('great-white-bite.png'),    iw:1536, ih:1024, mo:[.05,.55]},
+  gwDrag:  {src:beastAsset('great-white-dragged.png'), iw:1122, ih:1402, mo:[.50,.50]},
+  moBurst: {src:beastAsset('mosasaur-burst.png'),      iw:1024, ih:1536, mo:[.56,.20]},
+  moClamp: {src:beastAsset('mosasaur-clamp.png'),      iw:1024, ih:1536, mo:[.50,.16]},
+  lvOpen:  {src:beastAsset('livyatan-rise-open.png'),  iw:1024, ih:1536, mo:[.50,.20]},
+  lvClosed:{src:beastAsset('livyatan-rise-closed.png'),iw:1024, ih:1536, mo:[.50,.18]},
 };
-let beastReady=false;
-{ const ks=Object.keys(BEAST_POSE); let n=0;
-  for(const k of ks){ const im=new Image(); im.onload=()=>{ if(++n>=ks.length) beastReady=true; }; im.src=BEAST_POSE[k].src; BEAST_POSE[k].img=im; } }
+{ const ks=Object.keys(BEAST_POSE);
+  for(const k of ks){ const im=new Image(); im.src=BEAST_POSE[k].src; BEAST_POSE[k].img=im; } }
+const beastPoseReady = pose => !!(pose && pose.img && pose.img.complete && pose.img.naturalWidth);
 const BEAST_H=[0.238, 0.62, 1.06]; // 每階高度佔螢幕比（大白鯊 0.34→0.27→0.216→0.238,hao 縮兩輪再放大10%）
 /* 兩股力的身體角度（hao）：0=橫游 1=垂直吊掛。跨幀狀態,只被「線真的在拉(pull>0)」拽向
    垂直、被「獸贏(pull<0)」扭回水平;僵持(pull=0)不自轉。_gwWhip=轉動速率→尾巴鞭甩包絡。 */
@@ -881,7 +883,6 @@ function gwHangPose(T, hookY, hFrac, dir, pull, struggling){
 
 /* PNG 版 — 未載好轉 fallback 剪影 */
 function drawWhale(wh, T, hookDepth, cam){
-  if(!beastReady){ drawWhaleFallback(wh, T, hookDepth, cam); return; }
   const W=LAYOUT.w, H=LAYOUT.h, ph=wh.ph, p=wh.p;
   const stage=(wh.stage!=null)?wh.stage:((wh.tier!=null)?wh.tier:1);
 
@@ -1003,6 +1004,11 @@ function drawWhale(wh, T, hookDepth, cam){
 
   // 鉤子含嘴 + taut line（潛伏/逃走時不畫，魚串懸線由主 draw 接管）
   const holdHook = ph!=='lurk' && ph!=='strike' && (ph!=='snapline' || stage===0);   // 大白鯊掙脫=叼著鉤游走
+  if(!beastPoseReady(pose) || (prev && !beastPoseReady(prev.pose))){
+    drawWhaleFallback(wh, T, hookDepth, cam);
+    return;
+  }
+
   let hookFront=null;                              // 鉤的「嘴前下彎」——獸畫完後再補畫(含著,不是穿過)
   // 鉤的持有者:湧出/吞食中鉤仍在「前一隻」嘴裡(hao:還沒咬到,鉤不換手);其餘=當前獸
   const hp = prev? {pose:prev.pose, bx:prev.x, by:prev.y, hFrac:prev.hFrac, flip:prev.flip, rot:prev.rot||0, a:prev.alpha, st0:!!prev.shark}
