@@ -120,7 +120,6 @@
   .domain-title p{font-size:10px; color:var(--dim); margin-top:2px}
   .domain-card>.lede{padding:9px 11px; border-left:3px solid var(--domain);
     background:var(--domain-soft); border-radius:0 6px 6px 0}
-  .math-addon{margin-top:14px; padding-top:13px; border-top:1px solid var(--edge)}
 
   /* ── dashboard ── */
   .bignum{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:6px}
@@ -393,9 +392,9 @@
     <!-- controls + docs -->
     <div class="col settings-col">
       <nav class="section-nav" aria-label="設定分類">
-        <a class="nav-math" href="#mathSection"><span class="nav-no">01</span><span><b>倍率模型</b><small>RTP／倍率／加注</small></span></a>
+        <a class="nav-math" href="#mathSection"><span class="nav-no">01</span><span><b>倍率模型</b><small>RTP／倍率</small></span></a>
         <a class="nav-show" href="#showSection"><span class="nav-no">02</span><span><b>表演事件</b><small>巨獸／鯊魚</small></span></a>
-        <a class="nav-depth" href="#depthSection"><span class="nav-no">03</span><span><b>四階深度</b><small>數量／倍率權重</small></span></a>
+        <a class="nav-depth" href="#depthSection"><span class="nav-no">03</span><span><b>四階深度</b><small>段數／成本／權重</small></span></a>
         <a class="nav-guide" href="#guideSection"><span class="nav-no">04</span><span><b>機制說明</b><small>規則快速查閱</small></span></a>
       </nav>
 
@@ -404,7 +403,6 @@
         <div class="lede"><b style="color:var(--ink)">先設定目標 RTP，再把 RTP 直接分配到最多 10 組匿名結果</b>。每組直接設定最小／最大倍率；兩者相同就是固定倍率，不同就是區間。命中機率與「多久一次」由區間平均倍率及 RTP 佔比反推。</div>
         <div class="ptbl" id="ptbl"></div>
         <div class="sump"><span>已分配 <b id="sump">—</b> · 固定 <b id="ordrtp">—</b> · 區間 <b id="beastrtp">—</b> · 理論 RTP <b id="tev">—</b></span><span id="sumwarn"></span></div>
-        <div class="math-addon"><div class="grp" id="grpAnte"><div class="gh">深度加注</div></div></div>
       </section>
 
       <section class="card domain-card domain-show" id="showSection">
@@ -797,6 +795,18 @@ function buildDepthBandEditor(host){
   updateNote();
   host.appendChild(wrap);
 }
+function buildDepthAnteEditor(host){
+  host.querySelectorAll('.depth-ante-editor').forEach(e=>e.remove());
+  const wrap=document.createElement('div'); wrap.className='depth-ante-editor grp';
+  const head=document.createElement('div'); head.className='gh'; head.textContent='Depth ante';
+  wrap.appendChild(head);
+  ctrlRow(wrap,'加注額','×原注／段 (預設 0.25)', numInput(cfg.anteAmt,0.05,v=>{ cfg.anteAmt=v; updateDepthCostNotes(); }));
+  const fromSel=document.createElement('select'); fromSel.className='mini';
+  BANDS.forEach(b=>{ const o=document.createElement('option'); o.value=b; o.textContent=b; if(b===cfg.anteFrom)o.selected=true; fromSel.appendChild(o); });
+  fromSel.addEventListener('change',()=>{ cfg.anteFrom=fromSel.value; updateDepthCostNotes(); markDirty(); });
+  ctrlRow(wrap,'起始帶','哪一帶開始加注 (預設 REEF)', fromSel);
+  host.appendChild(wrap);
+}
 const WEIGHT_COLORS=['#556B78','#008C99','#D08B13','#7656B2','#2F8A57','#C65D23','#3276B1','#8C6A3A'];
 const WEIGHT_TEXT=['#FFFFFF','#FFFFFF','#1B2733','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF'];
 function distributeWeightCents(rows,indices,totalCents){
@@ -1107,14 +1117,9 @@ function buildParams(){
   });
   ctrlRow(gs,'獎品倍率 最小 ×','鯊魚沒咬斷時，轉成獎品魚的倍率下限（預設 ×3）',prizeMin);
   ctrlRow(gs,'獎品倍率 最大 ×','同一支 value roll 在最小～最大間抽樣（預設 ×10）',prizeMax);
-  const ga=$('#grpAnte'); ga.querySelectorAll('.row').forEach(e=>e.remove());
-  ctrlRow(ga,'加注額','×原注／段 (預設 0.25)', numInput(cfg.anteAmt,0.05,v=>{ cfg.anteAmt=v; updateDepthCostNotes(); }));
-  const fromSel=document.createElement('select'); fromSel.className='mini';
-  BANDS.forEach(b=>{ const o=document.createElement('option'); o.value=b; o.textContent=b; if(b===cfg.anteFrom)o.selected=true; fromSel.appendChild(o); });
-  fromSel.addEventListener('change',()=>{ cfg.anteFrom=fromSel.value; updateDepthCostNotes(); markDirty(); });
-  ctrlRow(ga,'起始帶','哪一帶開始加注 (預設 REEF)', fromSel);
-  const gp=$('#grpSpawn'); gp.querySelectorAll('.row,.density-editor,.depth-band-editor').forEach(e=>e.remove());
+  const gp=$('#grpSpawn'); gp.querySelectorAll('.row,.density-editor,.depth-band-editor,.depth-ante-editor').forEach(e=>e.remove());
   buildDepthBandEditor(gp);
+  buildDepthAnteEditor(gp);
   buildDensityEditor(gp,cfg.spawnDensity,cfg.appearanceByBand);
 }
 function markDirty(){
