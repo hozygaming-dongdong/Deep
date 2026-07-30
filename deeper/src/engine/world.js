@@ -343,7 +343,7 @@ export const CFG = {
   appearanceByBand: {
     SHALLOWS: {
       fish: [
-        {mult:0.2,weight:20}, {mult:0.5,weight:60}, {mult:1,weight:20},
+        {mult:0.2,weight:75}, {mult:0.5,weight:25}, {mult:1,weight:0},
         {mult:1.5,weight:0}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
       ],
       bubble: [
@@ -353,8 +353,8 @@ export const CFG = {
     },
     REEF: {
       fish: [
-        {mult:0.2,weight:5}, {mult:0.5,weight:40}, {mult:1,weight:40},
-        {mult:1.5,weight:10}, {mult:2,weight:5}, {mult:3,weight:0}, {mult:5,weight:0},
+        {mult:0.2,weight:30}, {mult:0.5,weight:64}, {mult:1,weight:6},
+        {mult:1.5,weight:0}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
       ],
       bubble: [
         {min:2,max:4,weight:68}, {min:4,max:8,weight:25}, {min:8,max:20,weight:6},
@@ -363,8 +363,8 @@ export const CFG = {
     },
     DEEPER: {
       fish: [
-        {mult:0.2,weight:0}, {mult:0.5,weight:25}, {mult:1,weight:40},
-        {mult:1.5,weight:15}, {mult:2,weight:15}, {mult:3,weight:5}, {mult:5,weight:0},
+        {mult:0.2,weight:8}, {mult:0.5,weight:62}, {mult:1,weight:26},
+        {mult:1.5,weight:4}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
       ],
       bubble: [
         {min:2,max:4,weight:48}, {min:4,max:8,weight:33}, {min:8,max:20,weight:15},
@@ -373,8 +373,8 @@ export const CFG = {
     },
     ABYSS: {
       fish: [
-        {mult:0.2,weight:0}, {mult:0.5,weight:10}, {mult:1,weight:30},
-        {mult:1.5,weight:20}, {mult:2,weight:25}, {mult:3,weight:12}, {mult:5,weight:3},
+        {mult:0.2,weight:0}, {mult:0.5,weight:45}, {mult:1,weight:45},
+        {mult:1.5,weight:7}, {mult:2,weight:2}, {mult:3,weight:1}, {mult:5,weight:0},
       ],
       bubble: [
         {min:2,max:4,weight:35}, {min:4,max:8,weight:35}, {min:8,max:20,weight:22},
