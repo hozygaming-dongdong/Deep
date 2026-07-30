@@ -265,49 +265,49 @@ export const PULL_WINDUP = 0.65;
 
    Exact frozen values and 200k evidence live in docs/ECONOMY-V2.md §0″. */
 export const CFG = {
-  depthBands: { SHALLOWS:3, REEF:6, DEEPER:9, ABYSS:12 },
+  depthBands: { SHALLOWS:10, REEF:10, DEEPER:10, ABYSS:20 },
   /* v2.12 generic opening distribution. Rows describe only a sealed multiplier
      result; they do not name or select any fish/beast presentation. */
   poolExact: [
-    { mult:0,   p:0.15048 },
-    { mult:0.5, p:0.40000 },
-    { mult:1,   p:0.30000 },
-    { mult:2,   p:0.10000 },
-    { mult:5,   p:0.04620 },
+    { mult:0, p:0.2747179487179487 },
   ],
   /* Uniform range rows use the same opening roll for both row selection and
      within-row position. Probabilities already encode their RTP contribution;
      presentation never multiplies or discounts them. */
   poolRange: [
-    { p:0.00200, min:3,  max:5  },
-    { p:0.00090, min:10, max:17 },
-    { p:0.00042, min:30, max:60 },
+    { p:0.3000000000000000, min:0,   max:0.3 },
+    { p:0.1846153846153846, min:0.3, max:1   },
+    { p:0.1500000000000000, min:1,   max:3   },
+    { p:0.0675000000000000, min:3,   max:5   },
+    { p:0.0200000000000000, min:5,   max:10  },
+    { p:0.0025000000000000, min:10,  max:30  },
+    { p:0.0006666666666667, min:30,  max:60  },
   ],
   /* Carry-collection ladder. The one existing post-PULL show roll evaluates
      eligible tiers from LIVYATAN → MOSASAUR → GREAT WHITE. A missed higher tier
      falls through to the next rule. A held beast releases residual carry but
      never creates or discounts value outside the sealed pool. */
   beastShowRules: [
-    { tier:0, min:10,  p:0.50 },
-    { tier:1, min:30,  p:0.50 },
-    { tier:2, min:100, p:0.50 },
+    { tier:0, min:10, p:0.30 },
+    { tier:1, min:18, p:0.40 },
+    { tier:2, min:35, p:0.50 },
   ],
   /* PULL-only presentation chain. The first branch depends on whether the hook
      actually caught a gold fish; later stages are pure show upgrades. */
-  goldFishTeaseP: 0,
+  goldFishTeaseP: 0.50,
   noGoldFishTeaseP: 0,
-  teaseToGreatWhiteP: 0,
-  greatWhiteToMosasaurP: 0,
-  /* Every quarter-stake ante buys its own complete 97% sealed pool.  It never
+  teaseToGreatWhiteP: 0.50,
+  greatWhiteToMosasaurP: 0.50,
+  /* Every ante buys its own complete 96.5% sealed pool. It never
      promotes the opening row into a beast and is never exposed to beast loss. */
   antePool: [
-    { mult:0,   p:0.1460 },
-    { mult:0.5, p:0.4000 },
-    { mult:1,   p:0.3000 },
-    { mult:2,   p:0.1000 },
-    { mult:5,   p:0.0540 },
+    { mult:0,   p:0.1504020618556701 },
+    { mult:0.5, p:0.3979381443298969 },
+    { mult:1,   p:0.2984536082474227 },
+    { mult:2,   p:0.0994845360824742 },
+    { mult:5,   p:0.0537216494845361 },
   ],
-  anteAmt:   0.25,        // ×stake charged every segment from REEF down
+  anteAmt:   0.20,        // ×stake charged every segment from REEF down
   anteFrom:  'REEF',      // first band that antes (SHALLOWS is the free look)
   sharkEnabled: true,     // SINK hazard master switch
   sharkSpawnP: 1/8,       // shark appears per segment (EVERY segment)
@@ -344,42 +344,42 @@ export const CFG = {
   appearanceByBand: {
     SHALLOWS: {
       fish: [
-        {mult:0.2,weight:75}, {mult:0.5,weight:25}, {mult:1,weight:0},
+        {mult:0.2,weight:20}, {mult:0.5,weight:60}, {mult:1,weight:20},
         {mult:1.5,weight:0}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
       ],
       bubble: [
-        {min:2,max:4,weight:75}, {min:4,max:8,weight:22}, {min:8,max:20,weight:3},
+        {min:2,max:4,weight:85}, {min:4,max:8,weight:14}, {min:8,max:20,weight:1},
         {min:20,max:50,weight:0}, {min:50,max:100,weight:0},
       ],
     },
     REEF: {
       fish: [
-        {mult:0.2,weight:42}, {mult:0.5,weight:55}, {mult:1,weight:3},
-        {mult:1.5,weight:0}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
+        {mult:0.2,weight:5}, {mult:0.5,weight:40}, {mult:1,weight:40},
+        {mult:1.5,weight:10}, {mult:2,weight:5}, {mult:3,weight:0}, {mult:5,weight:0},
       ],
       bubble: [
-        {min:2,max:4,weight:50}, {min:4,max:8,weight:36}, {min:8,max:20,weight:13},
+        {min:2,max:4,weight:68}, {min:4,max:8,weight:25}, {min:8,max:20,weight:6},
         {min:20,max:50,weight:1}, {min:50,max:100,weight:0},
       ],
     },
     DEEPER: {
       fish: [
-        {mult:0.2,weight:15}, {mult:0.5,weight:62}, {mult:1,weight:20},
-        {mult:1.5,weight:3}, {mult:2,weight:0}, {mult:3,weight:0}, {mult:5,weight:0},
+        {mult:0.2,weight:0}, {mult:0.5,weight:25}, {mult:1,weight:40},
+        {mult:1.5,weight:15}, {mult:2,weight:15}, {mult:3,weight:5}, {mult:5,weight:0},
       ],
       bubble: [
-        {min:2,max:4,weight:32}, {min:4,max:8,weight:38}, {min:8,max:20,weight:24},
-        {min:20,max:50,weight:5}, {min:50,max:100,weight:1},
+        {min:2,max:4,weight:48}, {min:4,max:8,weight:33}, {min:8,max:20,weight:15},
+        {min:20,max:50,weight:3.5}, {min:50,max:100,weight:0.5},
       ],
     },
     ABYSS: {
       fish: [
-        {mult:0.2,weight:3}, {mult:0.5,weight:54}, {mult:1,weight:35},
-        {mult:1.5,weight:6}, {mult:2,weight:2}, {mult:3,weight:0}, {mult:5,weight:0},
+        {mult:0.2,weight:0}, {mult:0.5,weight:10}, {mult:1,weight:30},
+        {mult:1.5,weight:20}, {mult:2,weight:25}, {mult:3,weight:12}, {mult:5,weight:3},
       ],
       bubble: [
-        {min:2,max:4,weight:24}, {min:4,max:8,weight:34}, {min:8,max:20,weight:30},
-        {min:20,max:50,weight:10}, {min:50,max:100,weight:2},
+        {min:2,max:4,weight:35}, {min:4,max:8,weight:35}, {min:8,max:20,weight:22},
+        {min:20,max:50,weight:7}, {min:50,max:100,weight:1},
       ],
     },
   },
@@ -388,23 +388,23 @@ export const CFG = {
      single count/presence roll; defaults preserve the prior seeded mapping. */
   spawnDensity: {
     SHALLOWS: {
-      fish:    [{count:0,weight:0},     {count:1,weight:65},   {count:2,weight:35},   {count:3,weight:0}],
-      bubble:  [{count:0,weight:60},    {count:1,weight:34},   {count:2,weight:6},    {count:3,weight:0}],
+      fish:    [{count:0,weight:0},     {count:1,weight:50},   {count:2,weight:50},   {count:3,weight:0}],
+      bubble:  [{count:0,weight:75},    {count:1,weight:23},   {count:2,weight:2},    {count:3,weight:0}],
       scatter: [{count:0,weight:99.43}, {count:1,weight:0.57}, {count:2,weight:0},    {count:3,weight:0}],
     },
     REEF: {
-      fish:    [{count:0,weight:0},    {count:1,weight:60},  {count:2,weight:40},  {count:3,weight:0}],
-      bubble:  [{count:0,weight:45},   {count:1,weight:42},  {count:2,weight:13},  {count:3,weight:0}],
+      fish:    [{count:0,weight:0},    {count:1,weight:50},  {count:2,weight:50},  {count:3,weight:0}],
+      bubble:  [{count:0,weight:72},   {count:1,weight:26},  {count:2,weight:2},   {count:3,weight:0}],
       scatter: [{count:0,weight:98.6}, {count:1,weight:1.4}, {count:2,weight:0},   {count:3,weight:0}],
     },
     DEEPER: {
-      fish:    [{count:0,weight:0},     {count:1,weight:55},   {count:2,weight:45},   {count:3,weight:0}],
-      bubble:  [{count:0,weight:32},    {count:1,weight:48},   {count:2,weight:18},   {count:3,weight:2}],
+      fish:    [{count:0,weight:0},     {count:1,weight:50},   {count:2,weight:50},   {count:3,weight:0}],
+      bubble:  [{count:0,weight:70},    {count:1,weight:27},   {count:2,weight:3},    {count:3,weight:0}],
       scatter: [{count:0,weight:97.45}, {count:1,weight:2.55}, {count:2,weight:0},    {count:3,weight:0}],
     },
     ABYSS: {
       fish:    [{count:0,weight:0},    {count:1,weight:50},  {count:2,weight:50},  {count:3,weight:0}],
-      bubble:  [{count:0,weight:25},   {count:1,weight:48},  {count:2,weight:23},  {count:3,weight:4}],
+      bubble:  [{count:0,weight:67},   {count:1,weight:30},  {count:2,weight:3},   {count:3,weight:0}],
       scatter: [{count:0,weight:96.4}, {count:1,weight:3.6}, {count:2,weight:0},   {count:3,weight:0}],
     },
   },

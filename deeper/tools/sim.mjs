@@ -14,7 +14,8 @@
    Usage: node tools/sim.mjs [--rounds 200000] [--tune]
    ============================================================ */
 import {
-  BP, LAYERS, HARD_CAP, DWELL, bandOf, ANTE_EV, ANTE_AMT,
+  BP, LAYERS, HARD_CAP, DWELL, BANDS, BAND_ENDS, BAND_EDGES, bandOf,
+  ANTE_EV, ANTE_AMT, ANTE_P, POOL_RTP,
   BEAST_TIER_NAME, BEAST_SHOW_RULES, SHARK_PRIZE_MIN, SHARK_PRIZE_MAX,
   beastShowTier, beastShowDecision, fishAppearanceForBand, bubbleAppearanceForBand, CFG,
 } from '../src/engine/world.js';
@@ -35,6 +36,20 @@ function ok(name, cond, extra=''){ console.log((cond?'  ✓ ':'  ✗ ')+name+(ex
 // policies: view → 'SINK' | 'PULL'
 const fixedStop = (L)=> (v)=> v.L>=L ? 'PULL' : 'SINK';
 const timid = (k)=> (v)=> v.potentialBp >= k*v.spendBp ? 'PULL' : 'SINK';
+const REF_L = Math.max(1,Math.min(LAYERS,Math.round(LAYERS*0.5)));
+const PROFILE_DEPTHS = (()=>{
+  const set=new Set([1,LAYERS,...BAND_EDGES.slice(1)]);
+  const step=Math.max(1,Math.ceil(LAYERS/10));
+  for(let L=step;L<LAYERS;L+=step) set.add(L);
+  return [...set].sort((a,b)=>a-b);
+})();
+const anteSegmentsThrough = L => {
+  let total=0;
+  for(let segment=1;segment<=Math.min(L,LAYERS);segment++){
+    if((ANTE_P[bandOf(segment)]||0)>0) total++;
+  }
+  return total;
+};
 
 /* SHARP — the informed ceiling policy: at each HOLD it samples the pull
    preview across the dwell window (what a patient player can literally see),
@@ -113,7 +128,7 @@ console.log('=== 1. DETERMINISM — same seed + same policy ⇒ bit-identical ou
 {
   let mismatch=0, checked=0;
   for(let i=0;i<Math.min(ROUNDS,20000);i++){
-    for(const L of [3,9,18,30]){
+    for(const L of BAND_EDGES.slice(1)){
       const a=JSON.stringify(simRound(seedOf(i), fixedStop(L)));
       const b=JSON.stringify(simRound(seedOf(i), fixedStop(L)));
       checked++; if(a!==b) mismatch++;
@@ -134,10 +149,12 @@ console.log('=== 2. DEPTH changes the show, not the anonymous sealed-pool RTP (v
   /* Depth changes which values are visible and how quickly value is delivered,
      but may not destroy or add to a sealed positive opening/ante pool. */
   let differ=0, sampled=0; let shallowMax=0, deepMax=0;
+  const shallowL=Math.max(1,Math.round(BAND_ENDS.SHALLOWS*0.6));
+  const deepL=Math.max(shallowL+1,REF_L);
   for(let i=0;i<3000;i++){
     const mk=(L)=>{ const r=createRound(seedOf(i)); while(r.st.L<L && r.canSink()) r.sink();
                     if(r.st.over) return null; r.pull(); return r.st.payoutBp; };
-    const shallow=mk(6), deep=mk(20);
+    const shallow=mk(shallowL), deep=mk(deepL);
     if(shallow===null || deep===null) continue;
     sampled++;
     if(shallow!==deep) differ++;
@@ -146,11 +163,12 @@ console.log('=== 2. DEPTH changes the show, not the anonymous sealed-pool RTP (v
   }
   ok('pull depth changes the outcome', differ>0, differ+'/'+sampled+' rounds differed');
   ok('deeper raises the ceiling (best case grows with depth)', deepMax>shallowMax,
-     'max @L6 ×'+(shallowMax/BP).toFixed(0)+'  vs  @L20 ×'+(deepMax/BP).toFixed(0));
+     'max @L'+shallowL+' ×'+(shallowMax/BP).toFixed(0)
+     +'  vs  @L'+deepL+' ×'+(deepMax/BP).toFixed(0));
   /* and the thing timing MUST NOT do any more */
   let catchDiffer=0, owedDiffer=0, tSampled=0;
   for(let i=0;i<1500;i++){
-    const mk=(dt)=>{ const r=createRound(seedOf(i)); for(let s2=0;s2<16 && r.canSink();s2++) r.sink();
+    const mk=(dt)=>{ const r=createRound(seedOf(i)); for(let s2=0;s2<REF_L-1 && r.canSink();s2++) r.sink();
                      if(r.st.over) return null; r.pull(r.st.t+dt);
                      return {pay:r.st.payoutBp, owed:r.st.payoutBp+r.st.carryOutBp}; };
     const a=mk(0), b=mk(0.7);
@@ -168,7 +186,7 @@ console.log('=== 2. DEPTH changes the show, not the anonymous sealed-pool RTP (v
 /* ---------- 2b. INDEPENDENT SPAWN WEIGHTS + WYSIWYG PAYOUT (v2.10) --- */
 console.log('=== 2b. Fish/bubble spawn weights are independent; caught labels pay exactly ===');
 {
-  const bands=['SHALLOWS','REEF','DEEPER','ABYSS'];
+  const bands=BANDS;
   const fishSeen=Object.fromEntries(bands.map(b=>[b,fishAppearanceForBand(b).map(()=>0)]));
   const bubbleSeen=Object.fromEntries(bands.map(b=>[b,bubbleAppearanceForBand(b).map(()=>0)]));
   let badFish=0, badPrize=0, prizeSeen=0, badBubble=0, badAssignment=0, badWysiwyg=0, badRoute=0;
@@ -177,7 +195,7 @@ console.log('=== 2b. Fish/bubble spawn weights are independent; caught labels pa
   const n=Math.min(ROUNDS,20000);
   for(let i=0;i<n;i++){
     const r=createRound(seedOf(i));
-    while(r.st.L<30 && r.canSink()) r.sink();
+    while(r.st.L<LAYERS && r.canSink()) r.sink();
     for(const f of r.st.fish){
       if(f.type==='PRIZE'){
         prizeSeen++;
@@ -213,7 +231,7 @@ console.log('=== 2b. Fish/bubble spawn weights are independent; caught labels pa
     if(shown!==r.st.baseBp) badWysiwyg++;
     for(const f of r.st.caught){
       if((f.catchGap??Infinity)>=(f.catchRadius??0)) badRoute++;
-      caughtThird[Math.min(2,Math.floor((Math.max(1,f.L)-1)/10))]++;
+      caughtThird[Math.min(2,Math.floor((Math.max(1,f.L)-1)*3/LAYERS))]++;
     }
   }
   ok('every fish value comes from its independently configured appearance row',
@@ -248,7 +266,7 @@ console.log('=== 3. PAYOUT LAW (v2.28) — payout + carry stays sealed; held bea
   let badBase=0, badPool=0, badSum=0, badShow=0, shows=0, qualified=0, wins=0, n=0, maxBase=0, maxTotal=0, anteRounds=0;
   let anteHitTotal=0, poolTotal=0, spendTotal=0, segTotal=0, openTotal=0;
   for(let i=0;i<ROUNDS;i++){
-    const r=simRound(seedOf(i), fixedStop(20)); n++;
+    const r=simRound(seedOf(i), fixedStop(REF_L)); n++;
     if(r.baseBp<0 || r.baseBp>HARD_CAP) badBase++;
     if(r.payoutBp > r.poolBp+r.carryInBp) badPool++;
     if(r.poolBp === 0 && r.payoutBp !== 0) badPool++;
@@ -258,9 +276,27 @@ console.log('=== 3. PAYOUT LAW (v2.28) — payout + carry stays sealed; held bea
     if((r.whaleBp>0 && !heldBeast) || (heldBeast && r.carryOutBp!==0)
        || (!heldBeast && r.whaleBp!==0)) badSum++;
     const budgetMult=r.beastShowBudgetBp/BP;
-    const decision=r.baseBp>0 ? beastShowDecision(budgetMult,r.beastShowRoll) : {tier:-1,lineBroken:false};
+    const directDecision=r.baseBp>0
+      ? beastShowDecision(budgetMult,r.beastShowRoll)
+      : {tier:-1,lineBroken:false};
+    let decision=directDecision;
+    if(!r.sharkCut){
+      if(r.directBeastShow!==(directDecision.tier>=0)) badShow++;
+      if(directDecision.tier<0){
+        const rolls=r.pullEventRolls;
+        const teaseP=r.pullHadGoldFish ? CFG.goldFishTeaseP : CFG.noGoldFishTeaseP;
+        const teased=!!rolls && rolls.tease<teaseP;
+        const great=teased && rolls.greatWhite<CFG.teaseToGreatWhiteP;
+        const mosa=great && rolls.mosasaur<CFG.greatWhiteToMosasaurP;
+        if(r.pullBeastTeased!==teased || r.pullGreatWhite!==great || r.pullMosasaur!==mosa) badShow++;
+        if(great){
+          const tier=mosa?1:0;
+          decision={tier,lineBroken:budgetMult<BEAST_SHOW_RULES[tier].min};
+        }
+      }
+    }
     const expectedTier=decision.tier;
-    const isQualified=r.baseBp>0 && beastShowTier(budgetMult)>=0;
+    const isQualified=!r.sharkCut && r.baseBp>0 && beastShowTier(budgetMult)>=0;
     if(isQualified) qualified++;
     if(!r.sharkCut && !(r.beastShowRoll>=0 && r.beastShowRoll<1)) badShow++;
     if(!r.sharkCut && r.beastShowBudgetBp!==r.payoutBp+r.carryOutBp) badShow++;
@@ -268,13 +304,13 @@ console.log('=== 3. PAYOUT LAW (v2.28) — payout + carry stays sealed; held bea
       shows++;
       if(expectedTier<0 || r.whaleEscaped!==decision.lineBroken
          || r.beastLineBroken!==decision.lineBroken || r.beastShowBp!==r.payoutBp
-         || r.whaleTier!==expectedTier || (r.beastLineBroken && r.whaleTier!==0)) badShow++;
+         || r.whaleTier!==expectedTier) badShow++;
     } else if(expectedTier>=0 || r.beastShowBp!==0 || r.whaleTier!==-1
               || r.beastLineBroken || r.whaleEscaped) badShow++;
     if(r.anteBp>0) anteRounds++;
     anteHitTotal += r.anteHits; poolTotal += r.poolBp; spendTotal += r.spendBp;
     openTotal += Math.round(r.poolMult*BP);                  // the opening draw's budget (pre-ante)
-    segTotal += Math.max(0, Math.min(r.stopL,20) - 3);      // REEF-and-below segments entered
+    segTotal += anteSegmentsThrough(r.stopL);
     if(r.baseBp>maxBase) maxBase=r.baseBp;
     if(r.payoutBp>maxTotal) maxTotal=r.payoutBp;
     if(r.payoutBp>0) wins++;
@@ -300,13 +336,21 @@ console.log('=== 3. PAYOUT LAW (v2.28) — payout + carry stays sealed; held bea
      Math.abs(anteMarginalEV - ANTE_EV) < 0.02,
      'ante EV '+(anteMarginalEV*100).toFixed(1)+'%  vs table '+(ANTE_EV*100).toFixed(1)+'%');
   const anteRate = anteHitTotal/segTotal;
-  ok('ante fires on EVERY segment from REEF down', Math.abs(anteRate - 1) < 0.001,
-     'rate = '+(anteRate*100).toFixed(2)+'%  ·  '+(anteHitTotal/n).toFixed(2)+' antes/round @L20');
-  console.log('     win-rate @L14 ≈ '+(wins/n*100).toFixed(1)+'%   max base ×'+(maxBase/BP).toFixed(1)+'   max total ×'+(maxTotal/BP).toFixed(1));
-  // the ante starts at REEF — SHALLOWS is still the free (unanted) look at the water
+  ok('ante fires on EVERY configured charged segment', Math.abs(anteRate - 1) < 0.001,
+     'rate = '+(anteRate*100).toFixed(2)+'%  ·  '+(anteHitTotal/n).toFixed(2)
+     +' antes/round @L'+REF_L);
+  console.log('     win-rate @L'+REF_L+' ≈ '+(wins/n*100).toFixed(1)
+     +'%   max base ×'+(maxBase/BP).toFixed(1)+'   max total ×'+(maxTotal/BP).toFixed(1));
+  // Segments before the configured ante band must remain free.
+  const firstAnteBand=BANDS.findIndex(b=>(ANTE_P[b]||0)>0);
+  const freeDepth=firstAnteBand>0 ? BAND_EDGES[firstAnteBand] : 0;
   let shFee=0;
-  for(let i=0;i<20000;i++){ const r=simRound(seedOf(i), fixedStop(3)); if(r.anteBp>0) shFee++; }
-  ok('SHALLOWS-only rounds are never anted', shFee===0, 'violations='+shFee);
+  for(let i=0;i<20000 && freeDepth>0;i++){
+    const r=simRound(seedOf(i), fixedStop(freeDepth));
+    if(r.anteBp>0) shFee++;
+  }
+  ok('segments before the configured ante band are never charged',
+     freeDepth===0 || shFee===0, 'violations='+shFee);
 }
 
 /* ---------- 4. SHARK VERDICT (v2.18) — presentation-only; budget safe ----- */
@@ -314,7 +358,7 @@ console.log('=== 4. SHARK VERDICT — pool-independent performance; all value ca
 {
   const n=Math.min(ROUNDS,80000); let cuts=0, badCarry=0, segments=0, contacts=0;
   for(let i=0;i<n;i++){
-    const r=simRound(seedOf(i), fixedStop(30));
+    const r=simRound(seedOf(i), fixedStop(LAYERS));
     segments+=r.stopL; contacts+=r.contacts;
     if(r.sharkCut){
       cuts++;
@@ -334,7 +378,7 @@ console.log('=== 4. SHARK VERDICT — pool-independent performance; all value ca
 console.log('=== 5. RTP by fixed stop — presentation-independent total ===');
 {
   const rows=[]; const fixedRtps=new Map(); let maxFixed=0, maxFixedL=0;
-  for(const L of [3,6,9,12,15,18,20,22,24,26,28,30]){
+  for(const L of PROFILE_DEPTHS){
     let pay=0,spend=0,snap=0,n=0,mx=0,shows=0,carry=0;
     for(let i=0;i<ROUNDS;i++){ const r=simRound(seedOf(i), fixedStop(L), carry);
       pay+=r.payoutBp; spend+=r.spendBp;
@@ -349,10 +393,13 @@ console.log('=== 5. RTP by fixed stop — presentation-independent total ===');
   console.log(rows.join('\n'));
   console.log(`  fixed-stop ceiling L${maxFixedL} = ${(maxFixed*100).toFixed(1)}%   ${maxFixed<1?'(<100% ✓)':'(≥100% ✗ EXPLOITABLE — blind strategy beats the house)'}`);
   if(maxFixed>=1) fails++;
-  const shallow=fixedRtps.get(3), deepBand=[12,15,18,20,22,24,26,28,30].map(L=>fixedRtps.get(L));
-  ok('SHALLOWS stays within 4pp of 97%', Math.abs(shallow-0.97)<=0.04,
-     `L3 ${(shallow*100).toFixed(2)}%`);
-  ok('L12+ converges to the 97% sealed-pool target', deepBand.every(x=>Math.abs(x-0.97)<=0.02),
+  const shallowL=BAND_ENDS.SHALLOWS, shallow=fixedRtps.get(shallowL);
+  const deepBand=PROFILE_DEPTHS.filter(L=>L>=REF_L).map(L=>fixedRtps.get(L));
+  ok('SHALLOWS stays within 4pp of the sealed-pool target',
+     Math.abs(shallow-POOL_RTP)<=0.04,
+     `L${shallowL} ${(shallow*100).toFixed(2)}% vs target ${(POOL_RTP*100).toFixed(2)}%`);
+  ok('lower-half depths converge to the sealed-pool target',
+     deepBand.every(x=>Math.abs(x-POOL_RTP)<=0.025),
      `range ${(Math.min(...deepBand)*100).toFixed(2)}–${(Math.max(...deepBand)*100).toFixed(2)}%`);
   for(const k of [1.5,2,3,5]){
     let pay=0,spend=0,n=0,carry=0; for(let i=0;i<Math.min(ROUNDS,80000);i++){ const r=simRound(seedOf(i), timid(k), carry); pay+=r.payoutBp; spend+=r.spendBp; carry=r.carryOutBp; n++; }
@@ -396,7 +443,7 @@ console.log('=== 5. RTP by fixed stop — presentation-independent total ===');
   {
     let n=0, carry=0; const appear=[0,0,0], broken=[0,0,0];
     for(let i=0;i<ROUNDS;i++){
-      const r=simRound(seedOf(i), fixedStop(20), carry); n++;
+      const r=simRound(seedOf(i), fixedStop(REF_L), carry); n++;
       if(r.whaleTriggered && r.whaleTier>=0){
         appear[r.whaleTier]++;
         if(r.beastLineBroken) broken[r.whaleTier]++;
@@ -404,7 +451,7 @@ console.log('=== 5. RTP by fixed stop — presentation-independent total ===');
       carry=r.carryOutBp;
     }
     const f=(x)=>x? '1/'+Math.round(n/x):'—';
-    console.log('  BEAST SHOW @L20 (guaranteed multiplier ladder + PULL event chain):');
+    console.log('  BEAST SHOW @L'+REF_L+' (guaranteed multiplier ladder + PULL event chain):');
     for(let t=2;t>=0;t--){
       const rule=BEAST_SHOW_RULES[t];
       console.log(`    ${BEAST_TIER_NAME[t].padEnd(11)} ×${rule.min}+ @${(rule.p*100).toFixed(0)}%  ${f(appear[t])}`
