@@ -7,6 +7,14 @@
 (() => {
   if (window.__DEEPER_ZOOM_GUARD__) return;
   window.__DEEPER_ZOOM_GUARD__ = true;
+  const setViewportSize = () => {
+    const vv = window.visualViewport;
+    const w = Math.round(vv?.width || window.innerWidth || document.documentElement.clientWidth);
+    const h = Math.round(vv?.height || window.innerHeight || document.documentElement.clientHeight);
+    document.documentElement.style.setProperty('--app-width', `${w}px`);
+    document.documentElement.style.setProperty('--app-height', `${h}px`);
+    window.dispatchEvent(new Event('deeper:viewport'));
+  };
   let lastTouchStart = 0;
   let lastTouchEnd = 0;
   const TAP_WINDOW = 420;
@@ -34,6 +42,11 @@
   ['gesturestart', 'gesturechange', 'gestureend'].forEach(type => {
     document.addEventListener(type, stop, opts);
   });
+  setViewportSize();
+  window.addEventListener('resize', setViewportSize, { passive: true });
+  window.addEventListener('orientationchange', () => setTimeout(setViewportSize, 80), { passive: true });
+  window.visualViewport?.addEventListener('resize', setViewportSize, { passive: true });
+  window.visualViewport?.addEventListener('scroll', setViewportSize, { passive: true });
 })();
 </script>
 <title>DEEPER v2 — physics preview</title>
@@ -49,11 +62,11 @@
     --gold-grad:linear-gradient(135deg,var(--gold-hi),var(--gold-mid) 38%,var(--gold-base) 62%,var(--gold-sh));
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0}
-  html,body{height:100%; background:var(--abyss-0); overflow:hidden; font-family:var(--font-ui); color:var(--bone);
+  html,body{width:100%; height:var(--app-height,100dvh); background:var(--abyss-0); overflow:hidden; font-family:var(--font-ui); color:var(--bone);
     touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none}
   body{display:flex; align-items:center; justify-content:center;
     background:radial-gradient(120% 90% at 50% 42%, rgba(13,53,64,.18), rgba(4,7,10,0) 55%), linear-gradient(180deg,#071118,#04070A 40%,#050409)}
-  #stage{position:relative; width:100vw; height:100vh; max-width:calc(100vh*0.5625); background:var(--abyss-0); overflow:hidden; touch-action:none;
+  #stage{position:relative; width:min(var(--app-width,100dvw), calc(var(--app-height,100dvh)*0.5625)); height:var(--app-height,100dvh); background:var(--abyss-0); overflow:hidden; touch-action:none;
     box-shadow:0 0 0 1px rgba(19,32,42,.9), 0 0 80px rgba(0,0,0,.55)}
   canvas{position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none}
   #boot,.bal,#betTile,.btn{touch-action:none}

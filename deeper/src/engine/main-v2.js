@@ -1323,7 +1323,9 @@ try{
     });
   }
 }catch{}
-window.addEventListener('resize', resize);
+const handleViewportResize=()=>{ resize(); calibrate(); };
+window.addEventListener('resize', handleViewportResize);
+window.addEventListener('deeper:viewport', handleViewportResize);
 resize(); updateBal(); updateDock(); updateBetUI(false);
 let beastArtUnlocked=false;
 const updateBootArtStatus=()=>{
