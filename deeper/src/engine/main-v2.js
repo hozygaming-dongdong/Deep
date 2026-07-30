@@ -180,22 +180,38 @@ function doPull(){
   // The visible hook uses the same start depth, windup and REEL_SPEED as the
   // engine contact clock. Bubble/scatter beats may shake and flash, but cannot
   // pause the physical hook while fish continue swimming.
-  armMissHolds(st);            // hold each miss at its natural swim; it slips aside as the hook reaches it
+  armMissHolds(st);            // close misses are pre-planned and drift clear before contact
   V.reel={t:0,windup:PULL_WINDUP,fromDepth:V.hookDepth,combo:0,hitch:0,hooked:0}; V.drag=null; setState('REELING');
 }
-/* v2.5 (hao: 上拉經過的都要抓到 → 勾不到的魚在鉤子逼近時才游開) — after the pull,
-   HOLD each miss at its natural swim, cancelling settleBase's pull-moment side-dart
-   (which slid every miss aside at once, well before the slow hook climbed to it). The
-   slip is re-timed to the hook's real approach in tickReel, so a miss reads as the
-   fish slipping the incoming hook — never as the hook threading through a fish it
-   didn't take. Show-only: the escape verdict was sealed at the pull; this only picks
-   WHEN it plays and confirms the fish clears the hook's path. */
+/* v2.22 — after PULL, close misses get a fixed visual escape plan immediately.
+   The verdict is already sealed; this only starts the sideways drift early so
+   the player sees a natural swim path instead of a last-second dodge. */
 function armMissHolds(st){
   for(const f of st.fish) if(f.escaped && !f.caught && !f._grab){
-    f.adjX=0; f.adjT=0; f._missHold=true; f._slip=null;
+    f.adjX=0; f.adjT=0;
+    const contactT=reelPathTime(st,f.depth);
+    const line=reelPathX(st,f.depth);
+    const natural=fishProjectedX(f,contactT,st.C);
+    const clearance=fishCatchRadius(f,contactT);
+    const side=natural>=line ? 1 : -1;
+    const targetWorld=fishWorldXAtScreen(f,contactT,line+side*(clearance+24));
+    const naturalWorld=fishX(f,contactT,st.C);
+    const offset=targetWorld-naturalWorld;
+    const lead=Math.min(1.25,Math.max(0.72,Math.abs(offset)/150+0.48));
+    f._missHold=true; f._slip={t0:Math.max(V.T,contactT-lead), contactT, offset};
   }
   for(const b of st.bubbles) if(b.missed && !b.popped && Number.isFinite(b.catchGap)){
-    b.adjX=0; b.adjT=0; b._missHold=true; b._slip=null;
+    b.adjX=0; b.adjT=0;
+    const contactT=reelPathTime(st,b.depth);
+    const line=reelPathX(st,b.depth);
+    const natural=bubbleProjectedX(b,contactT,st.C);
+    const clearance=bubblePopRadius(b,contactT);
+    const side=natural>=line ? 1 : -1;
+    const targetWorld=bubbleWorldXAtScreen(b,contactT,line+side*(clearance+22));
+    const naturalWorld=bubbleX(b,contactT,st.C);
+    const offset=targetWorld-naturalWorld;
+    const lead=Math.min(1.15,Math.max(0.62,Math.abs(offset)/150+0.44));
+    b._missHold=true; b._slip={t0:Math.max(V.T,contactT-lead), contactT, offset};
   }
 }
 function reelPathTime(st,d){
@@ -223,8 +239,6 @@ const SINK_Z=1.14;
    Sized so the whole visible silhouette clears its per-entity contact radius by
    the time the hook reaches that depth at every reel pace, so the hook is never
    seen to thread THROUGH an object it didn't take. Show-only. */
-const DODGE_LEAD=130;
-const SLIP_RAMP=0.40;       // seconds a miss takes to glide clear of the corridor (its own ease-out)
 function advanceDepth(dt){
   if(!V.engine) return;
   if(V.engine.st.over){
@@ -800,68 +814,29 @@ function tickReel(dt){
         V.shake=Math.max(V.shake,1.8); A.bite();
       }
     }
-    // SLIP-ON-APPROACH — the mirror of BITE-ON-PASS for a miss (hao: 上拉經過的都
-    // 要抓到 → 勾不到的魚在鉤子逼近時才游到旁邊創造 miss). As the reel climbs to
-    // within DODGE_LEAD of a fish the budget didn't buy, that fish slips aside so
-    // the hook threads empty water — the path it DID pass through always paid. Only
-    // a fish still ON the hook's corridor slips (a far decoy just keeps swimming).
-    // px = frac=1 line X at the fish's depth = where the hook END actually passes.
-    // While slipping, the target is RE-AIMED every frame at the live hook corridor,
-    // so a fast, wandering decoy cancels its own drift and clears just like a calm
-    // favored fish — the hook is never seen to thread through a held fish. Show-only.
+    // PRE-PLANNED MISS DRIFT — close misses were assigned a fixed sideways
+    // offset at PULL time. Playback only eases that plan in; it never re-aims
+    // fish around the hook inside the player's gaze.
     for(const f of st.fish){
       if(!f._missHold) continue;
-      if(!f._slip){                                            // not slipping yet — arm it on approach
-        if(V.hookDepth > f.depth + DODGE_LEAD) continue;       // reel not near enough
-        f.adjX = 0;
-        const nx=fishProjectedX(f,V.T,st.C);
-        const px = reelPathX(st,f.depth);
-        const clearance=fishCatchRadius(f,V.T);
-        if(Math.abs(nx - px) >= clearance + 22){               // off the visible body path → no slip needed
-          if(V.hookDepth <= f.depth) f._missHold = false;      // and the hook has cleared it
-          continue;
-        }
-        f._slip = { side: nx>=px ? 1 : -1, t0: V.T };          // commit: which way it slips, and the ramp start
-      }
+      if(!f._slip){ f._missHold=false; continue; }
       if(V.hookDepth <= f.depth - 8){ f._missHold = false; continue; }  // hook safely past → freeze the offset
-      // RE-AIM every frame at the LIVE corridor edge + margin, easing out over
-      // SLIP_RAMP. adjT stays 0 so fishX applies the offset with NO tail-dash — that
-      // flourish belongs to a catch; a miss is a clean glide aside. Normal swim still
-      // plays (it's in nx), just un-amplified, so the fish never swings back inside.
-      f.adjX = 0;
-      const worldX=fishX(f,V.T,st.C);
-      const px = reelPathX(st,f.depth);
-      const k = Math.min(1, (V.T - f._slip.t0)/SLIP_RAMP);
-      const ramp = 1 - Math.pow(1-k, 2.4);
-      const clearance=fishCatchRadius(f,V.T);
-      const targetWorld=fishWorldXAtScreen(f,V.T,px+f._slip.side*(clearance+14));
-      f.adjX=ramp*(targetWorld-worldX);
+      const span=Math.max(0.18,f._slip.contactT-f._slip.t0);
+      const k=Math.max(0,Math.min(1,(V.T-f._slip.t0)/span));
+      const ramp=k*k*(3-2*k);
+      f.adjX=f._slip.offset*ramp;
     }
     // An unaffordable multiplier follows the same legibility law: it remains
     // visible and clears the hook before contact instead of being crossed
     // without popping. Only bubbles whose natural route was close are armed.
     for(const b of st.bubbles){
       if(!b._missHold) continue;
-      if(!b._slip){
-        if(V.hookDepth > b.depth + DODGE_LEAD) continue;
-        b.adjX=0;
-        const nx=bubbleProjectedX(b,V.T,st.C);
-        const px=reelPathX(st,b.depth);
-        const clearance=bubblePopRadius(b,V.T);
-        if(Math.abs(nx-px)>=clearance+20){
-          if(V.hookDepth<=b.depth) b._missHold=false;
-          continue;
-        }
-        b._slip={side:nx>=px?1:-1,t0:V.T};
-      }
+      if(!b._slip){ b._missHold=false; continue; }
       if(V.hookDepth<=b.depth-8){ b._missHold=false; continue; }
-      b.adjX=0;
-      const worldX=bubbleX(b,V.T,st.C);
-      const px=reelPathX(st,b.depth);
-      const k=Math.min(1,(V.T-b._slip.t0)/SLIP_RAMP);
-      const ramp=1-Math.pow(1-k,2.4);
-      const targetWorld=bubbleWorldXAtScreen(b,V.T,px+b._slip.side*(bubblePopRadius(b,V.T)+14));
-      b.adjX=ramp*(targetWorld-worldX);
+      const span=Math.max(0.18,b._slip.contactT-b._slip.t0);
+      const k=Math.max(0,Math.min(1,(V.T-b._slip.t0)/span));
+      const ramp=k*k*(3-2*k);
+      b.adjX=b._slip.offset*ramp;
     }
     // scatter tease — a golden ring bursts as the hook passes each landed
     // scatter (§8.5: the 1st is the near-miss beat, the 2nd means WHALE)
