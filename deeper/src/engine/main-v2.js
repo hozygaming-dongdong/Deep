@@ -1383,7 +1383,8 @@ window.DEEPER_V2 = {
 /* ---------- dev 巨獸測試面板（畫布右上角；僅 dev，build 時 import.meta.env.DEV
    為 false 整段被 tree-shake，不進出貨版）。點一個 tier＝每局收網強制觸發那隻，
    正常玩即可反覆體驗；斷鉤＝切 escaped 視覺分支但仍照付；OFF＝關閉。 ---------- */
-if(import.meta.env && import.meta.env.DEV){
+const SHOW_DEMO_PANEL = (import.meta.env && import.meta.env.DEV) || true;
+if(SHOW_DEMO_PANEL){
   const css=`
   #beastDev{position:absolute;top:calc(env(safe-area-inset-top,10px) + 4px);right:8px;z-index:40;width:132px;
     font:600 10px/1.35 var(--font-ui,sans-serif);color:var(--bone,#E9F2F0);user-select:none;-webkit-user-select:none;

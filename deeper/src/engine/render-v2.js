@@ -749,13 +749,13 @@ function drawTease(tz, T, cam){
 const bClamp=(v,a,b)=>Math.max(a,Math.min(b,v)), bLerp=(a,b,t)=>a+(b-a)*t;
 const bExpo=t=>Math.pow(bClamp(t,0,1),2.4), bEaseOut=t=>1-Math.pow(1-bClamp(t,0,1),3);
 const BEAST_POSE = {
-  gwCruise:{src:'/beasts/great-white-cruise.png',  iw:1536, ih:1024, mo:[.10,.52]},
-  gwBite:  {src:'/beasts/great-white-bite.png',    iw:1536, ih:1024, mo:[.05,.55]},
-  gwDrag:  {src:'/beasts/great-white-dragged.png', iw:1122, ih:1402, mo:[.50,.50]},
-  moBurst: {src:'/beasts/mosasaur-burst.png',      iw:1024, ih:1536, mo:[.56,.20]},
-  moClamp: {src:'/beasts/mosasaur-clamp.png',      iw:1024, ih:1536, mo:[.50,.16]},
-  lvOpen:  {src:'/beasts/livyatan-rise-open.png',  iw:1024, ih:1536, mo:[.50,.20]},
-  lvClosed:{src:'/beasts/livyatan-rise-closed.png',iw:1024, ih:1536, mo:[.50,.18]},
+  gwCruise:{src:'./beasts/great-white-cruise.png',  iw:1536, ih:1024, mo:[.10,.52]},
+  gwBite:  {src:'./beasts/great-white-bite.png',    iw:1536, ih:1024, mo:[.05,.55]},
+  gwDrag:  {src:'./beasts/great-white-dragged.png', iw:1122, ih:1402, mo:[.50,.50]},
+  moBurst: {src:'./beasts/mosasaur-burst.png',      iw:1024, ih:1536, mo:[.56,.20]},
+  moClamp: {src:'./beasts/mosasaur-clamp.png',      iw:1024, ih:1536, mo:[.50,.16]},
+  lvOpen:  {src:'./beasts/livyatan-rise-open.png',  iw:1024, ih:1536, mo:[.50,.20]},
+  lvClosed:{src:'./beasts/livyatan-rise-closed.png',iw:1024, ih:1536, mo:[.50,.18]},
 };
 let beastReady=false;
 { const ks=Object.keys(BEAST_POSE); let n=0;
