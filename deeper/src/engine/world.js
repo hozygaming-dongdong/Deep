@@ -1,3 +1,5 @@
+import PRODUCTION_RECORD from '../../production-config.json' with { type: 'json' };
+
 /* ============================================================
    DEEPER v2 — WORLD: constants + deterministic geometry.
 
@@ -409,6 +411,18 @@ export const CFG = {
     },
   },
 };
+
+/* production-config.json is the operator-owned shipping source. The literal
+   above remains a readable fallback, while replacing one JSON file updates the
+   game, tuner defaults, CLI simulation, and the single-file Pages build. */
+if(PRODUCTION_RECORD?.schema===1 && PRODUCTION_RECORD.cfg
+  && typeof PRODUCTION_RECORD.cfg==='object'){
+  for(const key of Object.keys(CFG)){
+    if(PRODUCTION_RECORD.cfg[key]!==undefined){
+      CFG[key]=structuredClone(PRODUCTION_RECORD.cfg[key]);
+    }
+  }
+}
 
 /* derived, rebuilt from CFG — all `let` so live bindings update on retune */
 export let BEAST_SHOW_FROM, BEAST_SHOW_P, BEAST_SHOW_RULES, BEAST_TIER_NAME;

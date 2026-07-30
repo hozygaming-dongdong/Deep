@@ -25,6 +25,7 @@ Claude preview tabs freeze rAF, so drive frames manually with `stepFrames(n)`.
 ```
 deeper.html             game entry — gesture-direct control (markup + chrome CSS; logic in src/engine/)
 tuner.html              economy parameter console (dev-only; not a build input)
+production-config.json  shipping tuner parameters; imported into every game/sim build
 src/
   econ/rng.js           deterministic PRNG (xfnv1a → mulberry32) — shared by the engine
   engine/               deterministic core:
@@ -55,8 +56,8 @@ the water is arranged to spend it — so RTP is a property of the table, not of 
   IS the appearance frequency (~1/10 · 1/30 · 1/100). Each can tear free (50 / 25 / 25 %).
 - **RTP** — the fixed-stop ceiling (best simple play) sits just under the target; the curve is an
   inverted-U — deeper raises the ceiling and the cut risk together.
-- All of the above are the `CFG` object in `world.js`; **any change re-opens the gate** — `npm run sim`
-  must stay green (`--rounds 200000` for a freeze). Play with the numbers live in `tuner.html`.
+- Tune the numbers in `tuner.html`, then use `↓ JSON` to export `production-config.json`.
+  Replace the tracked file and run `npm run sim`; `world.js` imports it for the game, CLI, and Pages build.
 
 ## Art identity
 Bioluminescent trench / **black-gold material**. The **temperature axis (cold cyan ↔ warm gold)**

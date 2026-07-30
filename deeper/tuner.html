@@ -45,6 +45,11 @@
   .run[disabled]{opacity:.6; cursor:wait}
   .run-stack{display:flex; flex-direction:column; align-items:stretch; gap:6px; min-width:122px}
   .run-stack .run{width:100%}
+  .export-config{min-height:42px; padding:8px 12px; border:1px solid var(--edge); border-radius:7px;
+    background:var(--panel2); color:var(--cyan); font-family:var(--disp); font-size:13px;
+    font-weight:800; letter-spacing:.04em; cursor:pointer}
+  .export-config:hover{border-color:var(--cyan); background:#e7f3f5}
+  .export-config:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
   .roundsel{display:flex; align-items:center; gap:7px; font-size:11px; color:var(--ash)}
   .roundsel select{font-family:var(--mono); background:var(--panel2); color:var(--ink); border:1px solid var(--edge);
     border-radius:6px; padding:6px 8px; font-size:12px}
@@ -342,6 +347,8 @@
       </select>
     </div>
     <span class="sr-only" id="status" aria-live="polite">就緒</span>
+    <button class="export-config" id="exportProduction" type="button"
+      title="匯出目前完整參數">↓ JSON</button>
     <div class="run-stack">
       <button class="run" id="run">跑模擬 ▸</button>
       <span class="save-state" id="saveState">最後設定 —</span>
@@ -1168,6 +1175,26 @@ function saveConfig(){
     $('#status').textContent='保存失敗：瀏覽器儲存空間不可用'; $('#status').classList.remove('run');
   }
 }
+function exportProductionConfig(){
+  repaintPool();
+  if(!poolValid) return;
+  const record={
+    schema:1,
+    savedAt:new Date().toISOString(),
+    cfg:structuredClone(cfg),
+  };
+  const blob=new Blob([JSON.stringify(record,null,2)+'\n'],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;
+  link.download='production-config.json';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+  $('#status').textContent='已匯出 production-config.json';
+  $('#status').classList.remove('run');
+}
 function revertDraft(){
   cfg=savedRecord?mergeSavedCfg(DEFAULTS,savedRecord.cfg):structuredClone(DEFAULTS);
   savedAt=savedRecord?.savedAt||null;
@@ -1344,6 +1371,7 @@ function drawChart(rows, refL){
 }
 
 $('#run').addEventListener('click', run);
+$('#exportProduction').addEventListener('click', exportProductionConfig);
 $('#saveDraft').addEventListener('click', saveConfig);
 $('#revertDraft').addEventListener('click', revertDraft);
 $('#rounds').addEventListener('change',()=>{
