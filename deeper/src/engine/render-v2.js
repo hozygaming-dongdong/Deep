@@ -753,15 +753,35 @@ const BEAST_POSE = {
   lvOpen:  {src:beastAsset('livyatan-rise-open.png'),  iw:1024, ih:1536, mo:[.50,.20]},
   lvClosed:{src:beastAsset('livyatan-rise-closed.png'),iw:1024, ih:1536, mo:[.50,.18]},
 };
-function loadBeastPose(k){
+const BEAST_KEYS = Object.keys(BEAST_POSE);
+let beastLoadedCount = 0;
+let beastSettledCount = 0;
+let resolveBeastArtReady;
+export const beastArtReady = new Promise(resolve=>{ resolveBeastArtReady=resolve; });
+export function beastArtProgress(){
+  return { loaded:beastLoadedCount, settled:beastSettledCount, total:BEAST_KEYS.length };
+}
+function settleBeastPose(loaded){
+  beastSettledCount++;
+  if(loaded) beastLoadedCount++;
+  if(beastSettledCount>=BEAST_KEYS.length) resolveBeastArtReady(beastArtProgress());
+}
+function loadBeastPose(k, attempt=0){
   const pose=BEAST_POSE[k];
   if(!pose || pose.img) return;
   const im=new Image();
   im.decoding='async';
+  im.fetchPriority='high';
+  im.onload=()=>settleBeastPose(true);
+  im.onerror=()=>{
+    pose.img=null;
+    if(attempt<3) setTimeout(()=>loadBeastPose(k, attempt+1), 250*(attempt+1));
+    else settleBeastPose(false);
+  };
   im.src=pose.src;
   pose.img=im;
 }
-Object.keys(BEAST_POSE).forEach(loadBeastPose);
+BEAST_KEYS.forEach(loadBeastPose);
 const beastPoseReady = pose => !!(pose && pose.img && pose.img.complete && pose.img.naturalWidth);
 const BEAST_H=[0.238, 0.62, 1.06]; // 每階高度佔螢幕比（大白鯊 0.34→0.27→0.216→0.238,hao 縮兩輪再放大10%）
 /* 兩股力的身體角度（hao）：0=橫游 1=垂直吊掛。跨幀狀態,只被「線真的在拉(pull>0)」拽向

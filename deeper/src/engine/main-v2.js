@@ -22,7 +22,7 @@ import {
   bubbleX, bubbleProjectedX, bubblePopRadius, bubbleWorldXAtScreen,
   fishX, fishY, fishProjectedX, fishCatchRadius, fishWorldXAtScreen, makeScatter, sharkX,
 } from './entities.js';
-import { cv, ctx, LAYOUT, LW, resize, draw, advanceAtmosphere, setUnit, beastPanX } from './render-v2.js';
+import { cv, ctx, LAYOUT, LW, resize, draw, advanceAtmosphere, setUnit, beastPanX, beastArtReady, beastArtProgress } from './render-v2.js';
 import * as A from './audio-v2.js';
 import {
   SAVED_CFG_KEY, SAVED_CFG_CHANNEL, readSavedCfg, engineCfgFromRecord,
@@ -1325,6 +1325,23 @@ try{
 }catch{}
 window.addEventListener('resize', resize);
 resize(); updateBal(); updateDock(); updateBetUI(false);
+let beastArtUnlocked=false;
+const updateBootArtStatus=()=>{
+  const start=$('#boot .start');
+  if(!start) return;
+  const p=beastArtProgress();
+  start.textContent = beastArtUnlocked
+    ? 'tap - then pull the hook down'
+    : (p.settled>=p.total ? `beast art failed ${p.loaded}/${p.total} - reload` : `loading beast art ${p.loaded}/${p.total}`);
+};
+updateBootArtStatus();
+const beastStatusTimer=setInterval(updateBootArtStatus, 120);
+beastArtReady.then(()=>{
+  const p=beastArtProgress();
+  beastArtUnlocked=p.loaded>=p.total;
+  clearInterval(beastStatusTimer);
+  updateBootArtStatus();
+});
 { const bt=$('#betTile');
   if(bt) bt.addEventListener('pointerdown', e=>{ e.stopPropagation(); A.unlock(); A.ui(); cycleBet(); });
   const w=$('#wallet');
@@ -1349,7 +1366,10 @@ resize(); updateBal(); updateDock(); updateBetUI(false);
   };
   installZoomGuard();
   stage.addEventListener('pointerdown', e=>{ A.unlock();   // browsers only allow audio after a gesture
-    const boot=$('#boot'); if(boot && !boot.classList.contains('gone')){ boot.classList.add('gone'); setTimeout(()=>boot.remove(),500); return; } onDown(e); });
+    const boot=$('#boot'); if(boot && !boot.classList.contains('gone')){
+      if(!beastArtUnlocked){ updateBootArtStatus(); return; }
+      boot.classList.add('gone'); setTimeout(()=>boot.remove(),500); return;
+    } onDown(e); });
   window.addEventListener('pointermove', onMove, {passive:true});
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onUp);
