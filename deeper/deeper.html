@@ -97,7 +97,9 @@
     align-items:center; gap:8px; margin-bottom:12px}
   .ro{min-width:0; display:flex; flex-direction:column; align-items:center; line-height:1; text-align:center}
   .ro .lab{font-size:9px; letter-spacing:.16em; color:var(--ash); text-transform:uppercase; font-weight:600; margin-bottom:4px}
-  .ro .num{font-family:var(--font-display); font-weight:900; font-variant-numeric:tabular-nums; line-height:.85}
+  .ro .num{font-family:var(--font-display); font-weight:900; font-variant-numeric:tabular-nums; line-height:.85;
+    display:block; white-space:nowrap; transform:scaleX(var(--dock-fit,1));
+    transform-origin:center center; will-change:transform}
   .ro.score .num{font-size:30px; color:var(--cyan)}
   .ro.mult .num{font-size:30px; color:var(--gold-mid)}
   .ro.pot{text-align:center}

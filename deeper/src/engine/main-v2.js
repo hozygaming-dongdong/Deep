@@ -1272,6 +1272,24 @@ function updatePotentialRoll(money){
    directly comparable to the BET tile sitting next to them. Fish keep their
    PTS labels — points stay the BODY language, money is the OUTCOME. */
 const toMoney = bp => (bp/BP)*V.stake;
+const DOCK_FIT_MIN = 0.56;
+function fitDockNumber(el){
+  if(!el) return;
+  const slot=el.closest('.ro');
+  const max=(slot?.clientWidth||0)-2;
+  if(max<=0) return;
+  el.style.setProperty('--dock-fit','1');
+  const w=Math.max(el.scrollWidth, el.getBoundingClientRect().width);
+  const fit=w>max ? Math.max(DOCK_FIT_MIN, Math.min(1, max/w)) : 1;
+  el.style.setProperty('--dock-fit', fit.toFixed(3));
+}
+function fitDockNumbers(){
+  requestAnimationFrame(()=>{
+    fitDockNumber($('#potNum'));
+    fitDockNumber($('#multNum'));
+    fitDockNumber($('#potentialNum'));
+  });
+}
 function updateDock(){
   const st=V.engine&&V.engine.st;
   const live = st && (V.state==='HOLD'||V.state==='SINK');
@@ -1289,6 +1307,7 @@ function updateDock(){
     updatePotentialRoll(V.potDisplay);
   } else if(landed){ updatePotentialRoll(V.result.win);  // == the '+N' at the surface
   } else { const el=$('#potentialNum'); if(potSig!==''){ el.innerHTML='—'; potSig=''; } V.potDisplay=0; }
+  fitDockNumbers();
   /* v2.2 — the subline is gone (hao): the dock's four numbers already say
      everything the player acts on, and a running commentary under them was
      just noise competing with the water. Band/depth live on the right-edge
@@ -1334,7 +1353,7 @@ try{
     });
   }
 }catch{}
-const handleViewportResize=()=>{ resize(); calibrate(); };
+const handleViewportResize=()=>{ resize(); calibrate(); fitDockNumbers(); };
 window.addEventListener('resize', handleViewportResize);
 window.addEventListener('deeper:viewport', handleViewportResize);
 resize(); updateBal(); updateDock(); updateBetUI(false);
